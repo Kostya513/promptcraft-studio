@@ -1,0 +1,59 @@
+import { useState } from "react";
+import { StudioDashboard } from "@/components/studio/StudioDashboard";
+import { StudioMyPrompts } from "@/components/studio/StudioMyPrompts";
+import { StudioLibrary } from "@/components/studio/StudioLibrary";
+import { StudioFinances } from "@/components/studio/StudioFinances";
+import { StudioAnalytics } from "@/components/studio/StudioAnalytics";
+import { StudioAuthorSettings } from "@/components/studio/StudioAuthorSettings";
+import { StudioVerification } from "@/components/studio/StudioVerification";
+import PromptGenerator from "@/pages/PromptGenerator";
+
+const tabs = [
+  { key: "main", label: "Главная" },
+  { key: "prompts", label: "Мои промпты" },
+  { key: "generator", label: "AI Генератор" },
+  { key: "library", label: "Библиотека" },
+  { key: "finances", label: "Финансы" },
+  { key: "analytics", label: "Аналитика" },
+  { key: "verification", label: "Верификация" },
+  { key: "author", label: "Настройки автора" },
+];
+
+export default function StudioPage() {
+  const [activeTab, setActiveTab] = useState("main");
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-6">
+      <h1 className="text-2xl font-bold mb-1">Studio</h1>
+      <p className="text-sm text-muted-foreground mb-6">
+        Управляйте своим контентом, финансами и библиотекой
+      </p>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === tab.key
+                ? "gradient-primary text-primary-foreground"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "main" && <StudioDashboard />}
+      {activeTab === "prompts" && <StudioMyPrompts />}
+      {activeTab === "generator" && <PromptGenerator embedded />}
+      {activeTab === "library" && <StudioLibrary />}
+      {activeTab === "finances" && <StudioFinances />}
+      {activeTab === "analytics" && <StudioAnalytics />}
+      {activeTab === "verification" && <StudioVerification />}
+      {activeTab === "author" && <StudioAuthorSettings />}
+    </div>
+  );
+}
