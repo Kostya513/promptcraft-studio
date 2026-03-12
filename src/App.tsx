@@ -25,9 +25,8 @@ import AboutPage from "./pages/About";
 import OfferPage from "./pages/OfferPage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsPage from "./pages/TermsPage";
-import Requisites from "./pages/Requisites";
 import ContactsPage from "./pages/ContactsPage";
-import FAQPage from "./pages/FAQPage";
+
 import Blog from "./pages/Blog";
 import CreatePost from "./pages/CreatePost";
 import PublishPromptPage from "./components/prompt-market/PublishPromptPage";
@@ -81,9 +80,8 @@ const App = () => (
                 <Route path="/support/about/offer" element={<OfferPage />} />
                 <Route path="/support/about/privacy" element={<PrivacyPolicy />} />
                 <Route path="/support/about/terms" element={<TermsPage />} />
-                <Route path="/support/about/requisites" element={<Requisites />} />
                 <Route path="/support/about/contacts" element={<ContactsPage />} />
-                <Route path="/support/about/faq" element={<FAQPage />} />
+
                 <Route path="/blog" element={<Blog />} />
                 <Route path="/blog/create" element={<CreatePost />} />
                 <Route path="/settings" element={<SettingsPage />} />

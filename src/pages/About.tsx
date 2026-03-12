@@ -1,12 +1,26 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 export default function AboutPage() {
+  const [showTop, setShowTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 300);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
   return (
-    <div id="top" className="max-w-4xl mx-auto px-4 py-6 bg-background text-foreground">
+    <div className="max-w-4xl mx-auto px-4 py-6">
       <nav className="text-xs text-muted-foreground mb-4">
         <Link to="/support" className="hover:underline">Поддержка</Link> &gt; <Link to="/support/about" className="hover:underline">О сервисе</Link> &gt; О нас
       </nav>
-      <h1 className="text-3xl font-bold mb-6 text-gradient">Будущее, Которое Уже Наступило</h1>
+      <Link to="/support/about" className="text-primary hover:underline mb-4 inline-block">← Вернуться назад</Link>
+
+      <h1 className="text-4xl font-bold mb-2">О НАС</h1>
+      <p className="text-sm text-muted-foreground mb-6">Дата последнего обновления: 11 марта 2026 года | Версия: 1.0</p>
       <section className="mb-8">
         <p>Мы верим, что каждый промт — это не просто запрос к искусственному интеллекту. Это шаг в новый мир, где технологии служат человеку, где творчество не имеет границ, и где каждый может стать создателем завтрашнего дня.</p>
       </section>
@@ -84,14 +98,20 @@ export default function AboutPage() {
           <Link to="/support" className="px-4 py-2 rounded-xl border border-primary text-primary text-sm font-medium hover:bg-primary/10 transition-colors">Связаться</Link>
         </div>
       </section>
-      <div className="text-right mb-4">
-        <a href="#top" className="text-sm text-primary hover:underline">Наверх ▲</a>
+      <div className="bg-card border border-border rounded-lg p-5 text-center text-sm mt-6">
+        <p className="font-semibold">© 2026 ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА». Все права защищены.</p>
+        <p className="mt-2 text-muted-foreground">Сервис «Промт-Студия» — продукт компании ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА».</p>
       </div>
-      <footer className="mt-12 text-center text-xs text-muted-foreground">
-        © 2026 ООО «СтартТехПро». Все права защищены.<br />
-        Сервис «Промт-Студия» — продукт компании СтартТехПро.<br />
-        <Link to="/support/about/offer" className="hover:underline">Публичная оферта</Link> • <Link to="/support/about/privacy" className="hover:underline">Политика конфиденциальности</Link> • <Link to="/support/about/terms" className="hover:underline">Условия использования</Link> • <Link to="/support/about/contacts" className="hover:underline">Контакты</Link>
-      </footer>
+
+      <div className="mt-12 pt-6 border-t border-border">
+        <Link to="/support/about" className="text-primary hover:underline">← Вернуться назад</Link>
+      </div>
+
+      {showTop && (
+        <button onClick={scrollToTop} aria-label="Наверх" className="fixed bottom-6 right-6 p-3 bg-primary text-white rounded-full shadow-lg hover:opacity-90 transition-opacity z-40">
+          ↑
+        </button>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Info, FileText, Shield, File, CreditCard, Phone, HelpCircle } from "lucide-react";
+import { Info, FileText, Shield, File, Phone } from "lucide-react";
 
 export default function AboutService() {
   const cards = [
@@ -7,9 +7,7 @@ export default function AboutService() {
     { key: "offer", title: "Публичная оферта", desc: "Юридический документ", icon: FileText, path: "/support/about/offer" },
     { key: "privacy", title: "Политика конфиденциальности", desc: "Обработка персональных данных пользователей", icon: Shield, path: "/support/about/privacy" },
     { key: "terms", title: "Условия использования", desc: "Правила сервиса", icon: File, path: "/support/about/terms" },
-    { key: "requisites", title: "Реквизиты", desc: "Информация о компании ООО «СтартТехПро»", icon: CreditCard, path: "/support/about/requisites" },
     { key: "contacts", title: "Контакты", desc: "Способы связи с поддержкой", icon: Phone, path: "/support/about/contacts" },
-    { key: "faq", title: "FAQ", desc: "Часто задаваемые вопросы", icon: HelpCircle, path: "/support/about/faq" },
   ];
 
   return (

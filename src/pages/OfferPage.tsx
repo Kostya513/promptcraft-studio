@@ -11,8 +11,6 @@ export default function OfferPage() {
   }, []);
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
-  const printPage = () => window.print();
-  const downloadPdf = () => window.print();
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 scroll-smooth">
@@ -47,21 +45,6 @@ export default function OfferPage() {
         предложения (далее — «Пользователь» или «Заказчик»), по оказанию услуг
         сервиса «Промт-Студия».
       </p>
-
-      <div className="flex flex-wrap gap-2 mb-8">
-        <button
-          onClick={downloadPdf}
-          className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:opacity-90"
-        >
-          📄 Скачать PDF
-        </button>
-        <button
-          onClick={printPage}
-          className="px-4 py-2 bg-secondary text-white rounded-md text-sm font-medium hover:opacity-90"
-        >
-          🖨️ Распечатать
-        </button>
-      </div>
 
       {/* Table of contents */}
       <nav className="mb-8">

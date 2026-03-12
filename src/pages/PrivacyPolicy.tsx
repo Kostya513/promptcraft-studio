@@ -1,23 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-
-const requisitesText = `ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА»
-Сокращённое наименование: ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА»
-Юридический адрес организации: 307041, РОССИЯ, КУРСКАЯ ОБЛАСТЬ, М.Р-Н МЕДВЕНСКИЙ, С.П. ГОСТОМЛЯНСКИЙ СЕЛЬСОВЕТ, С 1-Я ГОСТОМЛЯ, Д. 156
-ИНН: 4600004389
-КПП: 460001001
-ОГРН/ОГРНИП: 1254600001028
-Расчётный счёт: 40702810210001873721
-Банк: АО «ТБанк»
-ИНН банка: 7710140679
-БИК банка: 044525974
-Корреспондентский счёт банка: 30101810145250000974
-Юридический адрес банка: 127287, г. Москва, ул. Хуторская 2-я, д. 38А, стр. 26`;
 
 export default function PrivacyPolicy() {
   const [showTop, setShowTop] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 300);
@@ -26,16 +11,6 @@ export default function PrivacyPolicy() {
   }, []);
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
-  const copyRequisites = async () => {
-    try {
-      await navigator.clipboard.writeText(requisitesText);
-      toast({ title: "Реквизиты скопированы" });
-    } catch (e) {
-      console.error(e);
-    }
-  };
-  const printPage = () => window.print();
-  const downloadPdf = () => window.print();
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -46,13 +21,6 @@ export default function PrivacyPolicy() {
 
       <h1 className="text-4xl font-bold mb-2">ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ</h1>
       <p className="text-sm text-muted-foreground mb-6">Дата последнего обновления: 11 марта 2026 года | Версия: 1.0</p>
-
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-2 mb-8">
-        <button onClick={downloadPdf} className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:opacity-90">📄 Скачать PDF</button>
-        <button onClick={printPage} className="px-4 py-2 bg-secondary text-white rounded-md text-sm font-medium hover:opacity-90">🖨️ Распечатать</button>
-        <button onClick={copyRequisites} className="px-4 py-2 bg-accent text-white rounded-md text-sm font-medium hover:opacity-90">📋 Копировать реквизиты</button>
-      </div>
 
       {/* 1. ОБЩИЕ ПОЛОЖЕНИЯ */}
       <section id="general" className="mb-8">
@@ -336,50 +304,14 @@ export default function PrivacyPolicy() {
         <hr className="my-6" />
       </section>
 
-      {/* 9. КОНТАКТЫ И РЕКВИЗИТЫ */}
+      {/* 9. КОНТАКТНАЯ ИНФОРМАЦИЯ */}
       <section id="contacts" className="mb-8">
-        <h2 className="text-2xl font-bold mb-4">9. КОНТАКТНАЯ ИНФОРМАЦИЯ И РЕКВИЗИТЫ ОПЕРАТОРА</h2>
+        <h2 className="text-2xl font-bold mb-4">9. КОНТАКТНАЯ ИНФОРМАЦИЯ</h2>
         
-        <h3 className="text-lg font-semibold mb-3">9.1. Для вопросов по обработке персональных данных</h3>
-        <p className="mb-4">Email: <strong>privacy@prompt-studio.ru</strong></p>
-
-        <h3 className="text-lg font-semibold mb-3">9.2. Для обращения в службу поддержки</h3>
-        <ul className="list-disc list-inside space-y-1 mb-4">
-          <li>Через форму обратной связи в Сервисе</li>
-          <li>Email: <strong>support@prompt-studio.ru</strong></li>
-          <li>Часы работы: Пн-Пт с 9:00 до 18:00 (МСК)</li>
-        </ul>
-
-        <h3 className="text-lg font-semibold mb-3">9.3. Реквизиты Оператора</h3>
-        <div className="bg-muted border border-border rounded-lg p-5 space-y-3 text-sm">
-          <div>
-            <p className="font-semibold">Название организации:</p>
-            <p className="mt-1">ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА»</p>
-          </div>
-          <div>
-            <p className="font-semibold">Сокращённое наименование:</p>
-            <p className="mt-1">ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА»</p>
-          </div>
-          <div>
-            <p className="font-semibold">Юридический адрес организации:</p>
-            <p className="mt-1">307041, РОССИЯ, КУРСКАЯ ОБЛАСТЬ, М.Р-Н МЕДВЕНСКИЙ, С.П. ГОСТОМЛЯНСКИЙ СЕЛЬСОВЕТ, С 1-Я ГОСТОМЛЯ, Д. 156</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><p className="font-semibold">ИНН:</p><p>4600004389</p></div>
-            <div><p className="font-semibold">КПП:</p><p>460001001</p></div>
-            <div><p className="font-semibold">ОГРН/ОГРНИП:</p><p>1254600001028</p></div>
-            <div><p className="font-semibold">Расчётный счёт:</p><p>40702810210001873721</p></div>
-          </div>
-          <div>
-            <p className="font-semibold">Банк:</p>
-            <p className="mt-1">АО «ТБанк»</p>
-            <p className="mt-2"><strong>ИНН банка:</strong> 7710140679</p>
-            <p><strong>БИК банка:</strong> 044525974</p>
-            <p><strong>Корреспондентский счёт банка:</strong> 30101810145250000974</p>
-            <p className="mt-2"><strong>Юридический адрес банка:</strong></p>
-            <p>127287, г. Москва, ул. Хуторская 2-я, д. 38А, стр. 26</p>
-          </div>
-        </div>
+        <p className="mb-4">По вопросам обработки персональных данных: <a href="mailto:privacy@prompt-studio.ru" className="text-primary hover:underline">privacy@prompt-studio.ru</a></p>
+        <p className="mb-4">Для обращения в службу поддержки: <a href="mailto:support@prompt-studio.ru" className="text-primary hover:underline">support@prompt-studio.ru</a></p>
+        <p className="mb-4">Часы работы: Пн-Пт, 9:00–18:00 (МСК)</p>
+        <p className="mb-4">Полные реквизиты компании указаны в <a href="/support/about/offer" className="text-primary hover:underline">Публичной оферте</a> (раздел 13).</p>
         <hr className="my-6" />
       </section>
 
