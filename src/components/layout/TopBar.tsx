@@ -37,9 +37,7 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar }: TopBarProps) {
           <Menu className="h-4 w-4 text-muted-foreground" />
         </button>
         <Link to="/market" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg overflow-hidden">
-            <img src="/logo.png" alt="Промт-Студия" className="h-full w-full object-contain" />
-          </div>
+          <div className="relative p-[1.5px] rounded-[3px] bg-gradient-to-br from-yellow-400 via-purple-600 via-blue-500 to-purple-800"><img src="/logo.png" alt="Промт-Студия" className="h-8 w-8 object-contain bg-white rounded-[2px]" /></div>
           <span className="text-lg font-bold tracking-tight">
             Промт<span className="text-gradient">-Студия</span>
           </span>

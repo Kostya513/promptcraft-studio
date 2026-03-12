@@ -40,8 +40,8 @@ export default function RegisterPage() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex h-12 w-12 rounded-xl gradient-primary items-center justify-center mb-4">
-            <Zap className="h-6 w-6 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center mb-4">
+            <div className="relative p-[1.5px] rounded-lg bg-gradient-to-br from-yellow-400 via-purple-600 via-blue-500 to-purple-800"><img src="/logo.png" alt="Промт-Студия" className="h-20 w-20 object-contain bg-white rounded-[2px]" /></div>
           </div>
           <h1 className="text-2xl font-bold mb-1">Создать аккаунт</h1>
           <p className="text-muted-foreground text-sm">Начните управлять своими аккаунтами и ИИ‑инструментами</p>

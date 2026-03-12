@@ -27,28 +27,28 @@ export default function ContactsPage() {
 
         <div className="space-y-6">
           <div>
-            <h3 className="text-lg font-semibold mb-2">Общие вопросы и поддержка</h3>
+            <h3 className="text-lg font-bold mb-2">Общие вопросы и поддержка</h3>
             <p className="mb-2">
               Email: <a href="mailto:support@prompt-studio.ru" className="text-primary hover:underline">support@prompt-studio.ru</a>
             </p>
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-2">Юридические вопросы</h3>
+            <h3 className="text-lg font-bold mb-2">Юридические вопросы</h3>
             <p className="mb-2">
               Email: <a href="mailto:legal@prompt-studio.ru" className="text-primary hover:underline">legal@prompt-studio.ru</a>
             </p>
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-2">Вопросы о защите персональных данных</h3>
+            <h3 className="text-lg font-bold mb-2">Вопросы о защите персональных данных</h3>
             <p className="mb-2">
               Email: <a href="mailto:privacy@prompt-studio.ru" className="text-primary hover:underline">privacy@prompt-studio.ru</a>
             </p>
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-2">Часы работы поддержки</h3>
+            <h3 className="text-lg font-bold mb-2">Часы работы поддержки</h3>
             <p>Понедельник — Пятница: 9:00–18:00 (Московское время)</p>
             <p className="text-sm text-muted-foreground mt-1">Выходные: суббота, воскресенье</p>
           </div>
@@ -74,7 +74,7 @@ export default function ContactsPage() {
         </form>
       </section>
       <div className="bg-card border border-border rounded-lg p-5 text-center text-sm mt-6">
-        <p className="font-semibold">© 2026 ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА». Все права защищены.</p>
+        <p className="font-bold">© 2026 ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА». Все права защищены.</p>
         <p className="mt-2 text-muted-foreground">Сервис «Промт-Студия» — продукт компании ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА».</p>
       </div>
 

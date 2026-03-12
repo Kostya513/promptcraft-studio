@@ -174,7 +174,7 @@ export default function TermsPage() {
       </section>
 
       <div className="bg-card border border-border rounded-lg p-5 text-center text-sm mt-6">
-        <p className="font-semibold">© 2026 ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА». Все права защищены.</p>
+        <p className="font-bold">© 2026 ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА». Все права защищены.</p>
         <p className="mt-2 text-muted-foreground">Сервис «Промт-Студия» — продукт компании ООО «СТАРТ ТЕХНОЛОГИЧЕСКОГО ПРОГРЕССА».</p>
       </div>
 

@@ -25,12 +25,12 @@ interface DesktopSidebarProps {
 export function DesktopSidebar({ collapsed, currentPath }: DesktopSidebarProps) {
   return (
     <aside
-      className={`hidden md:flex flex-col border-r border-border bg-card transition-all duration-300 ${
+      className={`hidden md:flex flex-col h-full border-r border-border bg-card transition-all duration-300 ${
         collapsed ? "w-16" : "w-60"
       }`}
     >
       <div className="h-0" />
-      <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-y-auto">
+      <nav className="py-2 px-2 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = currentPath === item.path || currentPath.startsWith(item.path + "/");
           return (
