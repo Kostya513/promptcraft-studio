@@ -1,15 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Menu, Bell, Zap, User, Settings, LogOut, X, ShoppingCart } from "lucide-react";
+import { Bell, User, Settings, LogOut, X, ShoppingCart } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 
-interface TopBarProps {
-  sidebarCollapsed: boolean;
-  onToggleSidebar: () => void;
-}
-
-export function TopBar({ sidebarCollapsed, onToggleSidebar }: TopBarProps) {
+export function TopBar() {
   const { user, isLoggedIn, getInitial, logout } = useUser();
   const { notifications, unreadCount, markAllRead, markAsRead } = useNotifications();
   const [showProfile, setShowProfile] = useState(false);
@@ -30,14 +25,11 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar }: TopBarProps) {
   return (
     <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40">
       <div className="flex items-center gap-3">
-        <button
-          onClick={onToggleSidebar}
-          className="hidden md:flex items-center justify-center h-8 w-8 rounded-lg hover:bg-muted transition-colors"
-        >
-          <Menu className="h-4 w-4 text-muted-foreground" />
-        </button>
+        {/* Логотип */}
         <Link to="/market" className="flex items-center gap-2">
-          <div className="relative p-[1.5px] rounded-[3px] bg-gradient-to-br from-yellow-400 via-purple-600 via-blue-500 to-purple-800"><img src="/logo.png" alt="Промт-Студия" className="h-8 w-8 object-contain bg-white rounded-[2px]" /></div>
+          <div className="relative p-[1.5px] rounded-[3px] bg-gradient-to-br from-yellow-400 via-purple-600 via-blue-500 to-purple-800">
+            <img src="/logo.png" alt="Промт-Студия" className="h-8 w-8 object-contain bg-white rounded-[2px]" />
+          </div>
           <span className="text-lg font-bold tracking-tight">
             Промт<span className="text-gradient">-Студия</span>
           </span>
