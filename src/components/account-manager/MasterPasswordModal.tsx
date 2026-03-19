@@ -4,10 +4,7 @@ import {
   deriveKey, 
   generateSalt, 
   hashPassword, 
-  packEncrypted,
-  encryptData,
-  decryptData,
-  unpackEncrypted
+  packEncrypted
 } from "@/utils/crypto.utils";
 import { verifyTOTP } from "@/utils/totp.utils";
 import { TwoFactorSetup } from "./TwoFactorSetup";
@@ -59,7 +56,8 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
     try {
       const salt = generateSalt();
       const hash = await hashPassword(password, salt);
-      const packed = packEncrypted(salt, new Uint8Array(Buffer.from(hash, "base64")));
+      const hashBytes = Uint8Array.from(atob(hash), c => c.charCodeAt(0));
+      const packed = packEncrypted(salt, hashBytes);
       
       localStorage.setItem("master_password_hash", packed);
       localStorage.setItem("master_password_salt", btoa(String.fromCharCode(...salt)));
@@ -91,9 +89,10 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
         return;
       }
 
-      const salt = new Uint8Array(Buffer.from(storedSalt, "base64"));
+      const salt = Uint8Array.from(atob(storedSalt), c => c.charCodeAt(0));
       const inputHash = await hashPassword(password, salt);
-      const inputPacked = packEncrypted(salt, new Uint8Array(Buffer.from(inputHash, "base64")));
+      const hashBytes = Uint8Array.from(atob(inputHash), c => c.charCodeAt(0));
+      const inputPacked = packEncrypted(salt, hashBytes);
 
       if (inputPacked !== storedHash) {
         setError("Неверный пароль");
@@ -101,7 +100,6 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
         return;
       }
 
-      // Если включена 2FA - проверяем TOTP
       if (totpSecret) {
         if (!totpToken || totpToken.length !== 6) {
           setError("Введите код из аутентификатора");
@@ -129,7 +127,6 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
   const handle2FAEnabled = (secret: string) => {
     localStorage.setItem("totp_secret", secret);
     setHas2FA(true);
-    // Завершаем установку мастер-пароля
     if (pendingKey && pendingPassword) {
       onSetup(pendingPassword);
       onUnlock(pendingKey);
@@ -143,6 +140,14 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
     setHas2FA(false);
     setError("");
   };
+
+  const handleToggleMode = () => {
+    setMode(mode === "setup" ? "unlock" : "setup");
+  };
+
+  const toggleButtonText = mode === "setup" 
+    ? "У меня уже есть пароль" 
+    : "Сбросить и установить новый";
 
   if (!isOpen) return null;
 
@@ -251,10 +256,11 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
 
             {isSetup && mode === "unlock" && (
               <button
-                onClick={() => setMode(mode === "setup" ? "unlock" : "setup")}
+                type="button"
+                onClick={handleToggleMode}
                 className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                {mode === "setup" ? "У меня уже есть пароль" : "Сбросить и установить новый"}
+                <span>{toggleButtonText}</span>
               </button>
             )}
 
@@ -266,6 +272,7 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
                   </span>
                   {has2FA ? (
                     <button
+                      type="button"
                       onClick={handleDisable2FA}
                       className="text-xs text-destructive hover:underline"
                     >
@@ -273,6 +280,7 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
                     </button>
                   ) : (
                     <button
+                      type="button"
                       onClick={() => setShow2FASetup(true)}
                       className="text-xs text-primary hover:underline"
                     >
@@ -298,7 +306,6 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
         </div>
       </div>
 
-      {/* 2FA Setup Modal */}
       <TwoFactorSetup
         isOpen={show2FASetup}
         onClose={() => {
