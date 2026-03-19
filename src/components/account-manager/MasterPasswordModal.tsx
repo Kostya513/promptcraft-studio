@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lock, Unlock, Shield, AlertCircle, Smartphone } from "lucide-react";
+import { Lock, Unlock, Shield, AlertCircle, Smartphone, Eye, EyeOff } from "lucide-react";
 import { 
   deriveKey, 
   generateSalt, 
@@ -18,6 +18,7 @@ interface MasterPasswordModalProps {
 export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswordModalProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<"setup" | "unlock">("unlock");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -187,14 +188,27 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
               <label className="block text-sm font-medium mb-2">
                 Мастер-пароль
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="••••••••"
-                onKeyDown={(e) => e.key === "Enter" && (mode === "setup" ? handleSetup() : handleUnlock())}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary pr-10"
+                  placeholder="••••••••"
+                  onKeyDown={(e) => e.key === "Enter" && (mode === "setup" ? handleSetup() : handleUnlock())}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {mode === "setup" && (
@@ -202,14 +216,27 @@ export function MasterPasswordModal({ isOpen, onUnlock, onSetup }: MasterPasswor
                 <label className="block text-sm font-medium mb-2">
                   Подтвердите пароль
                 </label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="••••••••"
-                  onKeyDown={(e) => e.key === "Enter" && handleSetup()}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary pr-10"
+                    placeholder="••••••••"
+                    onKeyDown={(e) => e.key === "Enter" && handleSetup()}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 
