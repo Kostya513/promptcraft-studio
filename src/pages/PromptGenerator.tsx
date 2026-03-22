@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+import { RUSSIAN_AI_MODELS, generatePromptWithYandexGPT, improvePromptWithYandexGPT, testPromptWithKandinsky, generateVariationsWithYandexGPT } from "@/lib/ai-api";
 // ─── Types ───
 interface GeneratedPrompt {
   id: string;
@@ -41,13 +42,7 @@ interface Improvement {
 }
 
 // ─── Constants ───
-const AI_MODELS = [
-  { value: "midjourney_v6", label: "Midjourney v6.1", type: "image" },
-  { value: "sdxl", label: "Stable Diffusion XL", type: "image" },
-  { value: "dalle3", label: "DALL-E 3", type: "image" },
-  { value: "gpt4", label: "GPT-4", type: "text" },
-  { value: "claude", label: "Claude", type: "text" },
-];
+const AI_MODELS = RUSSIAN_AI_MODELS;
 
 const STYLES = [
   "Фотореализм", "Цифровое искусство", "Минимализм", "Абстракция",
@@ -156,7 +151,7 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
   const formatOptions = FORMATS[currentModelType as keyof typeof FORMATS] || FORMATS.image;
 
   // ─── Generate ───
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!taskInput || taskInput.length < 20) {
       toast({ title: "Ошибка", description: "Минимум 20 символов описания", variant: "destructive" });
       return;
@@ -166,21 +161,42 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
       return;
     }
     setIsGenerating(true);
-    setTimeout(() => {
-      const gen = generateMockResults(selectedModel, taskInput);
+    try {
+      const variants = await generatePromptWithYandexGPT(taskInput, selectedModel, selectedStyle, detailLevel[0]);
+      const gen = variants.map((text, i) => ({
+        id: `gen_${Date.now()}_${i}`,
+        text,
+        model: selectedModel,
+        quality: 85 + Math.floor(Math.random() * 10),
+        rating: null,
+      }));
       setResults(gen);
-      setIsGenerating(false);
       toast({ title: "Готово!", description: `Сгенерировано ${gen.length} вариантов` });
-    }, 2000);
+    } catch (error) {
+      toast({ title: "Ошибка", description: "Не удалось сгенерировать промт", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // ─── Improve ───
-  const handleImprove = () => {
+  const handleImprove = async () => {
     if (!improveInput) return;
-    const imps = generateImprovements(improveInput);
-    setImprovements(imps);
-    setImprovedText(improveInput);
-    setShowImproveAnalysis(true);
+    try {
+      const result = await improvePromptWithYandexGPT(improveInput);
+      const imps = result.improvements.map((text, i) => ({
+        id: `imp_${i}`,
+        text,
+        category: "keywords",
+        applied: false,
+      }));
+      setImprovements(imps);
+      setImprovedText(result.improved);
+      setShowImproveAnalysis(true);
+      toast({ title: "Промт улучшен!" });
+    } catch (error) {
+      toast({ title: "Ошибка", description: "Не удалось улучшить промт", variant: "destructive" });
+    }
   };
 
   const applyImprovement = (id: string) => {
@@ -196,28 +212,44 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
   };
 
   // ─── Variations ───
-  const handleVariations = () => {
+  const handleVariations = async () => {
     if (!variationInput) return;
     setIsGenerating(true);
-    setTimeout(() => {
-      const vars = generateMockResults(selectedModel, variationInput);
-      setVariations(vars);
+    try {
+      const vars = await generateVariationsWithYandexGPT(variationInput, 3);
+      const variations = vars.map((text, i) => ({
+        id: `var_${Date.now()}_${i}`,
+        text,
+        model: selectedModel,
+        quality: 80 + Math.floor(Math.random() * 15),
+        rating: null,
+      }));
+      setVariations(variations);
+      toast({ title: "Готово!", description: `Создано ${variations.length} вариаций` });
+    } catch (error) {
+      toast({ title: "Ошибка", description: "Не удалось создать вариации", variant: "destructive" });
+    } finally {
       setIsGenerating(false);
-    }, 2000);
+    }
   };
 
   // ─── Test ───
-  const handleTest = () => {
+  const handleTest = async () => {
     if (!testPrompt) return;
     if (testLimit <= 0 && !isPro) {
       toast({ title: "Недоступно", description: "Тестирование доступно только PRO пользователям", variant: "destructive" });
       return;
     }
     setIsTesting(true);
-    setTimeout(() => {
-      setTestResult("Результат сгенерирован. Для реальных результатов подключите API ключ в настройках.");
+    try {
+      const result = await testPromptWithKandinsky(testPrompt);
+      setTestResult(result.message || result.imageUrl ? "Изображение сгенерировано!" : "Генерация завершена");
+      toast({ title: "Тест завершён!", description: result.status === "mock" ? "Подключите API ключ для реальных тестов" : "Успешно" });
+    } catch (error) {
+      toast({ title: "Ошибка", description: "Не удалось протестировать промт", variant: "destructive" });
+    } finally {
       setIsTesting(false);
-    }, 3000);
+    }
   };
 
   // ─── Actions ───
