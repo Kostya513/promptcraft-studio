@@ -24,13 +24,13 @@ export function TopBar() {
 
   return (
     <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         {/* Логотип */}
         <Link to="/market" className="flex items-center gap-2">
           <div className="relative p-[1.5px] rounded-[3px] bg-gradient-to-br from-yellow-400 via-purple-600 via-blue-500 to-purple-800">
-            <img src="/logo.png" alt="Промт-Студия" className="h-8 w-8 object-contain bg-white rounded-[2px]" />
+            <img src="/logo.png" alt="Промт-Студия" className="h-8 w-8 object-contain bg-white rounded-[2px] flex-shrink-0" />
           </div>
-          <span className="text-lg font-bold tracking-tight">
+          <span className="text-lg font-bold tracking-tight min-w-0 truncate">
             Промт<span className="text-gradient">-Студия</span>
           </span>
         </Link>

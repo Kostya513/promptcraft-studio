@@ -1,0 +1,70 @@
+[33mcommit fdcbc145bdc81685f863682ebb711ecac9fe16c4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: PromptStudio <support@prompt-studio.ru>
+Date:   Mon Mar 23 00:20:46 2026 +0300
+
+    feat: AI Agent с интеграцией соцсетей и маркетплейсов
+    
+    � AI AGENT CORE:
+    - Оркестратор задач и workflow менеджер
+    - Контекст пользователя и сессий
+    - Генератор постов для соцсетей
+    
+    � SOCIAL MEDIA ADAPTERS (4 платформы):
+    - ВКонтакте (vk.ts)
+    - Telegram (telegram.ts)
+    - TenChat (tenchat.ts)
+    - Дзен (dzen.ts)
+    
+    � MARKETPLACE ADAPTERS (6 платформ):
+    - Wildberries (wildberries.ts)
+    - Ozon (ozon.ts)
+    - Яндекс.Маркет (yandex-market.ts)
+    - Avito (avito.ts)
+    - Lamoda (lamoda.ts)
+    - Мегамаркет (megamarket.ts)
+    
+    � INFRASTRUCTURE:
+    - Браузер расширение (extension/)
+    - AI API интеграция (ai-api.ts)
+    - Обновление зависимостей и конфигов
+    
+    ✨ ВСЕГО: 20+ новых файлов, ~110 KB кода
+    ✅ TypeScript компиляция без ошибок
+
+ .gitignore                                    |   1 [32m+[m
+ extension/background/background.js            | 109 [32m+++++++[m
+ extension/content/content.js                  | 114 [32m+++++++[m
+ extension/icons/.gitkeep                      |   0
+ extension/icons/icon128.png                   | Bin [31m0[m -> [32m18764[m bytes
+ extension/icons/icon16.png                    | Bin [31m0[m -> [32m18764[m bytes
+ extension/icons/icon48.png                    | Bin [31m0[m -> [32m18764[m bytes
+ extension/manifest.json                       |  50 [32m+++[m
+ extension/popup/popup.css                     | 435 [32m++++++++++++++++++++++++++[m
+ extension/popup/popup.html                    |  12 [32m+[m
+ extension/popup/popup.tsx                     | 215 [32m+++++++++++++[m
+ package-lock.json                             |  36 [32m+++[m
+ package.json                                  |   4 [32m+[m[31m-[m
+ src/lib/ai-agent/context.ts                   | 162 [32m++++++++++[m
+ src/lib/ai-agent/index.ts                     | 108 [32m+++++++[m
+ src/lib/ai-agent/marketplace/avito.ts         | 288 [32m+++++++++++++++++[m
+ src/lib/ai-agent/marketplace/index.ts         | 198 [32m++++++++++++[m
+ src/lib/ai-agent/marketplace/lamoda.ts        | 307 [32m++++++++++++++++++[m
+ src/lib/ai-agent/marketplace/megamarket.ts    | 314 [32m+++++++++++++++++++[m
+ src/lib/ai-agent/marketplace/ozon.ts          | 308 [32m++++++++++++++++++[m
+ src/lib/ai-agent/marketplace/types.ts         | 102 [32m++++++[m
+ src/lib/ai-agent/marketplace/wildberries.ts   | 308 [32m++++++++++++++++++[m
+ src/lib/ai-agent/marketplace/yandex-market.ts | 312 [32m++++++++++++++++++[m
+ src/lib/ai-agent/orchestrator.ts              | 170 [32m++++++++++[m
+ src/lib/ai-agent/social/dzen.ts               | 172 [32m++++++++++[m
+ src/lib/ai-agent/social/index.ts              |  96 [32m++++++[m
+ src/lib/ai-agent/social/registry.ts           |  78 [32m+++++[m
+ src/lib/ai-agent/social/telegram.ts           | 177 [32m+++++++++++[m
+ src/lib/ai-agent/social/tenchat.ts            | 171 [32m++++++++++[m
+ src/lib/ai-agent/social/types.ts              |  71 [32m+++++[m
+ src/lib/ai-agent/social/vk.ts                 | 124 [32m++++++++[m
+ src/lib/ai-agent/tools/post-generator.ts      | 103 [32m++++++[m
+ src/lib/ai-agent/workflow.ts                  | 217 [32m+++++++++++++[m
+ src/lib/ai-api.ts                             |  96 [32m++++++[m
+ src/pages/PromptGenerator.tsx                 |  84 [32m+++[m[31m--[m
+ vite.config.ts                                |  66 [32m+++[m[31m-[m
+ 36 files changed, 4968 insertions(+), 40 deletions(-)

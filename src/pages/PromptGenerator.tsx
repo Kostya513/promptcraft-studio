@@ -14,6 +14,7 @@ import {
   Lightbulb, Settings, Eye, Layers, Diff
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import PublishWizard from "@/components/studio/PublishWizard";
 
 import { RUSSIAN_AI_MODELS, generatePromptWithYandexGPT, improvePromptWithYandexGPT, testPromptWithKandinsky, generateVariationsWithYandexGPT } from "@/lib/ai-api";
 // ─── Types ───
@@ -107,6 +108,8 @@ function generateImprovements(prompt: string): Improvement[] {
 export default function PromptGenerator({ embedded }: { embedded?: boolean } = {}) {
   const { toast } = useToast();
   const [mode, setMode] = useState("create");
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [selectedPromptForPublish, setSelectedPromptForPublish] = useState<string>("");
 
   // Create mode state
   const [taskInput, setTaskInput] = useState("");
@@ -267,7 +270,8 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
   };
 
   const publishToMarket = (prompt: GeneratedPrompt) => {
-    toast({ title: "Переход к публикации", description: "Заполните описание и цену" });
+    setSelectedPromptForPublish(prompt.text);
+    setShowPublishModal(true);
   };
 
   const rateResult = (promptId: string, rating: number) => {
@@ -481,7 +485,7 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2"><Diff className="h-4 w-4" />До / После</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground">Оригинал</label>
                     <pre className="text-xs whitespace-pre-wrap bg-muted/30 p-3 rounded-lg mt-1">{improveInput}</pre>
@@ -529,7 +533,7 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
           </Card>
 
           {variations.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
               {variations.map((v, idx) => (
                 <Card key={v.id}>
                   <CardHeader className="pb-2">
@@ -660,7 +664,13 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
             ))
           )}
         </TabsContent>
-      </Tabs>
+      {showPublishModal && (
+        <PublishWizard
+          promptText={selectedPromptForPublish}
+          onClose={() => { setShowPublishModal(false); setSelectedPromptForPublish(""); }}
+        />
+      )}
+    </Tabs>
     </div>
   );
 }
