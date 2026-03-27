@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import PublishWizard from "@/components/studio/PublishWizard";
+import { savePrompt, getPrompts, addToFavorites, saveToDrafts, addToHistory, getHistory } from "@/lib/local-storage";
 
 import { RUSSIAN_AI_MODELS, generatePromptWithYandexGPT, improvePromptWithYandexGPT, testPromptWithKandinsky, generateVariationsWithYandexGPT } from "@/lib/ai-api";
 // ─── Types ───
@@ -141,9 +142,20 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
   const [history, setHistory] = useState<HistoryItem[]>([
     { id: "h1", date: "2025-03-02", mode: "create", model: "midjourney_v6", input: "Киберпанк город", results: [] },
     { id: "h2", date: "2025-03-01", mode: "improve", model: "gpt4", input: "Анализ рынка", results: [] },
+
     { id: "h3", date: "2025-02-28", mode: "variations", model: "sdxl", input: "Абстрактный фон", results: [] },
   ]);
 
+
+  // Загрузка сохранённых данных при старте
+  useEffect(() => {
+    const savedPrompts = getPrompts();
+    if (savedPrompts.length > 0) {
+      setResults(savedPrompts);
+    }
+    const savedHistory = getHistory();
+    console.log("LocalStorage загружен:", { prompts: savedPrompts.length, history: savedHistory.length });
+  }, []);
   // Usage limits (mock)
   const dailyLimit = 5;
   const dailyUsed = 2;
@@ -174,6 +186,9 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
         rating: null,
       }));
       setResults(gen);
+      // Сохраняем в localStorage
+      gen.forEach(prompt => savePrompt(prompt));
+      addToHistory(taskInput, gen.map(g => g.text), selectedModel);
       toast({ title: "Готово!", description: `Сгенерировано ${gen.length} вариантов` });
     } catch (error) {
       toast({ title: "Ошибка", description: "Не удалось сгенерировать промт", variant: "destructive" });
@@ -262,10 +277,12 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
   };
 
   const saveToFavorites = (prompt: GeneratedPrompt) => {
+    addToFavorites({ ...prompt, createdAt: Date.now() });
     toast({ title: "Сохранено в избранное" });
   };
 
-  const saveToDrafts = (prompt: GeneratedPrompt) => {
+  const _saveToDrafts = (prompt: GeneratedPrompt) => {
+    saveToDrafts({ ...prompt, createdAt: Date.now() });
     toast({ title: "Сохранено в черновики Studio" });
   };
 
@@ -416,7 +433,7 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
                       <Button size="sm" variant="outline" onClick={() => copyPrompt(r.text)}><Copy className="h-4 w-4 mr-1" />Копировать</Button>
                       <Button size="sm" variant="outline" onClick={() => { setImproveInput(r.text); setMode("improve"); }}><Zap className="h-4 w-4 mr-1" />Улучшить</Button>
                       <Button size="sm" variant="outline" onClick={() => { setTestPrompt(r.text); setMode("test"); }}><Play className="h-4 w-4 mr-1" />Тест</Button>
-                      <Button size="sm" variant="outline" onClick={() => saveToDrafts(r)}><Save className="h-4 w-4 mr-1" />В черновики</Button>
+                      <Button size="sm" variant="outline" onClick={() => _saveToDrafts(r)}><Save className="h-4 w-4 mr-1" />В черновики</Button>
                       <Button size="sm" variant="outline" onClick={() => saveToFavorites(r)}><Heart className="h-4 w-4 mr-1" />В избранное</Button>
                       <Button size="sm" onClick={() => publishToMarket(r)}><Upload className="h-4 w-4 mr-1" />Опубликовать</Button>
                     </div>
@@ -547,7 +564,7 @@ export default function PromptGenerator({ embedded }: { embedded?: boolean } = {
                     <div className="flex gap-1.5">
                       <Button size="sm" variant="outline" onClick={() => copyPrompt(v.text)}><Copy className="h-3 w-3" /></Button>
                       <Button size="sm" variant="outline" onClick={() => saveToFavorites(v)}><Heart className="h-3 w-3" /></Button>
-                      <Button size="sm" variant="outline" onClick={() => saveToDrafts(v)}><Save className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => _saveToDrafts(v)}><Save className="h-3 w-3" /></Button>
                     </div>
                   </CardContent>
                 </Card>
