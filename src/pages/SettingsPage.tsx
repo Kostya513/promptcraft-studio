@@ -11,8 +11,9 @@ import { useUser } from "@/contexts/UserContext";
 import { toast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { DataSettings } from "@/components/settings/DataSettings";
 
-const settingsTabs = ["Профиль", "Безопасность", "Подписка", "Уведомления", "Интерфейс", "Данные"];
+const settingsTabs = ["Профиль", "Безопасность", "Подписка", "Данные"];
 
 const connectedServices = [
   { id: "vk", name: "ВКонтакте", connected: true, desc: "Автопубликация постов и кросс-постинг" },
