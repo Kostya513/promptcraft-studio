@@ -1,48 +1,49 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { query } from '../config/database.js';
+import { Router, Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
 
-const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+declare global {
+  var tempUsers: any[];
+}
+if (!global.tempUsers) global.tempUsers = [];
+
+const authMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Требуется авторизация' });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Требуется авторизация" });
+    return;
   }
   try {
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.split(" ")[1];
     const decoded: any = jwt.verify(token, JWT_SECRET);
     (req as any).userId = decoded.userId;
     next();
   } catch {
-    res.status(401).json({ error: 'Неверный токен' });
+    res.status(401).json({ error: "Неверный токен" });
   }
 };
 
-// GET /api/users/profile
-router.get('/profile', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const result = await query('SELECT id, email, name, avatar_url, role, created_at FROM users WHERE id = $1', [(req as any).userId]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Пользователь не найден' });
-    res.json({ user: result.rows[0] });
-  } catch (error: any) {
-    res.status(500).json({ error: 'Ошибка получения профиля' });
+router.get("/profile", authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const user = global.tempUsers.find((u: any) => u.id === (req as any).userId);
+  if (!user) {
+    res.status(404).json({ error: "Пользователь не найден" });
+    return;
   }
+  res.json({ user: { id: user.id, email: user.email, name: user.name, avatar_url: "" } });
 });
 
-// PUT /api/users/profile
-router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { name, avatar_url } = req.body;
-    const result = await query(
-      'UPDATE users SET name = COALESCE($1, name), avatar_url = COALESCE($2, avatar_url), updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id, email, name, avatar_url, role',
-      [name, avatar_url, (req as any).userId]
-    );
-    res.json({ user: result.rows[0] });
-  } catch (error: any) {
-    res.status(500).json({ error: 'Ошибка обновления профиля' });
+router.put("/profile", authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const { name, avatar_url } = req.body;
+  const user = global.tempUsers.find((u: any) => u.id === (req as any).userId);
+  if (!user) {
+    res.status(404).json({ error: "Пользователь не найден" });
+    return;
   }
+  if (name) user.name = name;
+  if (avatar_url) user.avatar_url = avatar_url;
+  res.json({ user: { id: user.id, email: user.email, name: user.name, avatar_url: "" } });
 });
 
 export default router;

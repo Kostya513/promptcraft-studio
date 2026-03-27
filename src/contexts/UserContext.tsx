@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { getCurrentUser, logout as apiLogout, getToken } from "@/lib/api-client";
 
 export interface UserProfile {
+  id?: number;
   email: string;
   name: string;
   role: "business" | "creative" | "dev";
@@ -18,9 +20,10 @@ interface UserContextType {
   user: UserProfile;
   setUser: (u: UserProfile) => void;
   isLoggedIn: boolean;
-  login: (email: string) => void;
-  logout: () => void;
+  login: (email: string, token: string) => void;
+  logout: () => Promise<void>;
   getInitial: () => string;
+  refreshUser: () => Promise<void>;
 }
 
 const roleLabels: Record<string, string> = {
@@ -38,9 +41,9 @@ const defaultUser: UserProfile = {
   avatar: "",
   language: "Русский",
   timezone: "Europe/Moscow",
-  promptsCount: 4,
-  purchasesCount: 3,
-  servicesCount: 5,
+  promptsCount: 0,
+  purchasesCount: 0,
+  servicesCount: 0,
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -48,15 +51,65 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile>(defaultUser);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = (email: string) => {
-    setUser((prev) => ({ ...prev, email }));
+  // Проверка сессии при загрузке
+  useEffect(() => {
+    const token = getToken();
+    if (token) {
+      getCurrentUser()
+        .then((apiUser) => {
+          if (apiUser) {
+            setUser({
+              ...defaultUser,
+              id: apiUser.id,
+              email: apiUser.email,
+              name: apiUser.name || apiUser.email.split('@')[0],
+              avatar: apiUser.avatar_url || "",
+            });
+            setIsLoggedIn(true);
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('auth_token');
+          setIsLoggedIn(false);
+        })
+        .finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const login = (email: string, token: string) => {
+    localStorage.setItem('auth_token', token);
+    setUser((prev) => ({ 
+      ...prev, 
+      email,
+      name: email.split('@')[0],
+    }));
     setIsLoggedIn(true);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await apiLogout();
     setIsLoggedIn(false);
     setUser(defaultUser);
+  };
+
+  const refreshUser = async () => {
+    try {
+      const apiUser = await getCurrentUser();
+      if (apiUser) {
+        setUser((prev) => ({
+          ...prev,
+          id: apiUser.id,
+          name: apiUser.name || prev.name,
+          avatar: apiUser.avatar_url || prev.avatar,
+        }));
+      }
+    } catch {
+      // Игнорируем ошибки
+    }
   };
 
   const getInitial = () => {
@@ -69,8 +122,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setUser({ ...u, roleLabel: roleLabels[u.role] || u.role });
   };
 
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Загрузка...</div>;
+  }
+
   return (
-    <UserContext.Provider value={{ user, setUser: updateUser, isLoggedIn, login, logout, getInitial }}>
+    <UserContext.Provider value={{ user, setUser: updateUser, isLoggedIn, login, logout, getInitial, refreshUser }}>
       {children}
     </UserContext.Provider>
   );
