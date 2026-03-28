@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +23,12 @@ interface GeneratedResult {
   description: string;
   imageUrl?: string;
   category?: CategoryType;
+}
+
+interface Message {
+  role: "user" | "assistant";
+  text: string;
+  timestamp: number;
 }
 
 const CATEGORIES: { id: CategoryType; name: string; icon: any; desc: string; popular?: boolean }[] = [
@@ -98,6 +104,7 @@ const STYLES_BY_CATEGORY: Record<CategoryType, { id: string; name: string; icon:
 export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizardProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const [currentStep, setCurrentStep] = useState<Step>("category");
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
@@ -108,7 +115,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<GeneratedResult | null>(null);
-  const [conversation, setConversation] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [version, setVersion] = useState(1.0);
 
   const aiModels = [
@@ -119,6 +126,13 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
   ];
 
   const currentStyles = selectedCategory ? STYLES_BY_CATEGORY[selectedCategory] : STYLES_BY_CATEGORY.other;
+
+  // Авто-скролл к новому сообщению
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const handleCategorySelect = (categoryId: CategoryType) => {
     setSelectedCategory(categoryId);
@@ -172,7 +186,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
       setResult(generatedResult);
       setProgress(100);
       setVersion(1.0);
-      setConversation([]);
+      setMessages([{ role: "assistant", text: variations[0] || description, timestamp: Date.now() }]);
       
       setTimeout(() => {
         setIsProcessing(false);
@@ -191,8 +205,9 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
   const handleImprove = async (feedback: string) => {
     if (!result) return;
     
+    const userMessage: Message = { role: "user", text: feedback, timestamp: Date.now() };
+    setMessages(prev => [...prev, userMessage]);
     setIsProcessing(true);
-    setConversation(prev => [...prev, { role: "user", text: feedback }]);
     
     try {
       const improvedPrompt = `${result.prompt}. Улучшение: ${feedback}`;
@@ -209,10 +224,11 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
         return newVersion;
       });
       
-      setConversation(prev => [...prev, { role: "assistant", text: variations[0] || improvedPrompt }]);
+      setMessages(prev => [...prev, { role: "assistant", text: variations[0] || improvedPrompt, timestamp: Date.now() }]);
       
     } catch (error) {
       toast({ title: "Ошибка", description: "Не удалось улучшить", variant: "destructive" });
+      setMessages(prev => [...prev, { role: "assistant", text: "Произошла ошибка при улучшении. Попробуйте ещё раз.", timestamp: Date.now() }]);
     } finally {
       setIsProcessing(false);
     }
@@ -495,44 +511,63 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
 
                 <Card>
                   <CardHeader>
-                    <h3 className="font-semibold">💬 Улучшить промт</h3>
-                    <p className="text-xs text-muted-foreground">Опишите что изменить (версия {version})</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold">💬 Улучшить промт</h3>
+                        <p className="text-xs text-muted-foreground">Диалог с AI (версия {version})</p>
+                      </div>
+                      {isProcessing && (
+                        <div className="flex items-center gap-2 text-xs text-primary">
+                          <Sparkles className="h-3 w-3 animate-pulse" />
+                          <span>AI обрабатывает...</span>
+                        </div>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex gap-2 flex-wrap">
-                      {["Добавить детали", "Сократить", "Расширить", "Изменить тон"].map(quick => (
-                        <Button key={quick} variant="outline" size="sm" onClick={() => handleImprove(quick)}>
-                          {quick}
-                        </Button>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder="Например: добавь больше технических характеристик..."
-                        onKeyDown={e => {
-                          if (e.key === "Enter" && (e.target as HTMLInputElement).value) {
-                            handleImprove((e.target as HTMLInputElement).value);
-                            (e.target as HTMLInputElement).value = "";
-                          }
-                        }}
-                      />
-                      <Button onClick={(e) => {
-                        const input = e.currentTarget.previousSibling as HTMLInputElement;
-                        if (input.value) {
-                          handleImprove(input.value);
-                          input.value = "";
-                        }
-                      }}>Улучшить</Button>
-                    </div>
-                    {conversation.length > 0 && (
-                      <div className="max-h-40 overflow-y-auto space-y-2 text-sm">
-                        {conversation.map((msg, i) => (
-                          <div key={i} className={`p-2 rounded ${msg.role === "user" ? "bg-primary/10" : "bg-success/10"}`}>
-                            <span className="font-medium">{msg.role === "user" ? "Вы" : "AI"}:</span> {msg.text}
+                    {messages.length > 0 && (
+                      <div ref={chatContainerRef} className="max-h-48 overflow-y-auto space-y-3 p-3 bg-muted/30 rounded-lg">
+                        {messages.map((msg, i) => (
+                          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                            <div className={`max-w-[80%] p-3 rounded-lg text-sm ${
+                              msg.role === "user" 
+                                ? "bg-primary text-primary-foreground animate-in slide-in-from-right-2" 
+                                : "bg-background border border-border animate-in slide-in-from-left-2"
+                            }`}>
+                              {msg.text}
+                            </div>
                           </div>
                         ))}
                       </div>
                     )}
+                    
+                    <div className="flex gap-2 flex-wrap">
+                      {["Добавить детали", "Сократить", "Расширить", "Изменить тон"].map(quick => (
+                        <Button key={quick} variant="outline" size="sm" onClick={() => handleImprove(quick)} disabled={isProcessing} className="text-xs">
+                          {quick}
+                        </Button>
+                      ))}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Input placeholder="Опишите что улучшить..." onKeyDown={e => {
+                        if (e.key === "Enter" && (e.target as HTMLInputElement).value && !isProcessing) {
+                          handleImprove((e.target as HTMLInputElement).value);
+                          (e.target as HTMLInputElement).value = "";
+                        }
+                      }} disabled={isProcessing} />
+                      <Button onClick={(e) => {
+                        const input = e.currentTarget.previousSibling as HTMLInputElement;
+                        if (input.value && !isProcessing) {
+                          handleImprove(input.value);
+                          input.value = "";
+                        }
+                      }} disabled={isProcessing}>
+                        {isProcessing ? <Sparkles className="h-4 w-4 animate-spin" /> : "Улучшить"}
+                      </Button>
+                    </div>
+                    
+                    <p className="text-xs text-muted-foreground text-center">Нажмите Enter для отправки • Версия {version}</p>
                   </CardContent>
                 </Card>
               </div>

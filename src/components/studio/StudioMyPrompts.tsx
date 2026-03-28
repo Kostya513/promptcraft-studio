@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import {
-  Plus, Search, Pencil, Trash2, Archive, BarChart3,
-  Download, Tag, MoreHorizontal, FileText, Eye, ShoppingCart,     
-  Star, Heart, FolderHeart
+  Plus, Search, Archive, BarChart3,
+  Tag, MoreHorizontal, Star, Heart, FolderHeart, Trash2, Copy, Cpu, FileText
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getPrompts, getDrafts, getFavorites, getHistory, StoredPrompt, HistoryItem } from "@/lib/local-storage";
@@ -11,6 +10,7 @@ import QuickStartWizard from "./QuickStartWizard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 type PromptStatus = "published" | "draft" | "moderation" | "archive" | "all";
 
@@ -32,7 +32,17 @@ const statusColors: Record<PromptStatus, string> = {
 
 type SortKey = "date" | "sales" | "name";
 
+const AI_ICONS: Record<string, { icon: any; color: string }> = {
+  yandexgpt: { icon: Cpu, color: "text-blue-500" },
+  kandinsky: { icon: FileText, color: "text-purple-500" },
+  gigachat: { icon: Heart, color: "text-green-500" },
+  shedevrum: { icon: Star, color: "text-amber-500" },
+  custom: { icon: FileText, color: "text-muted-foreground" },
+  manual: { icon: FileText, color: "text-muted-foreground" },
+};
+
 export function StudioMyPrompts() {
+  const { toast } = useToast();
   const [filter, setFilter] = useState<PromptStatus>("all");      
   const [sort, setSort] = useState<SortKey>("date");
   const [search, setSearch] = useState("");
@@ -41,6 +51,7 @@ export function StudioMyPrompts() {
   const [allPrompts, setAllPrompts] = useState<StoredPrompt[]>([]);
   const [activeView, setActiveView] = useState<"prompts" | "favorites">("prompts");
   const [showQuickStart, setShowQuickStart] = useState(false);    
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     const loadedDrafts = getDrafts();
@@ -84,9 +95,61 @@ export function StudioMyPrompts() {
     return text.slice(0, maxLength) + "...";
   };
 
+  const handleCopy = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    toast({ title: "Скопировано", description: "Промт скопирован в буфер обмена" });
+  };
+
+  const handleDelete = (id: string) => {
+    const newPrompts = allPrompts.filter(p => p.id !== id);
+    localStorage.setItem('promptcraft_prompts', JSON.stringify(newPrompts));
+    setAllPrompts(newPrompts);
+    setDeleteConfirm(null);
+    toast({ title: "Удалено", description: "Промт успешно удалён" });
+  };
+
+  const getModelDisplay = (model: string) => {
+    const modelKey = model.toLowerCase();
+    const modelInfo = AI_ICONS[modelKey] || AI_ICONS.custom;
+    const ModelIcon = modelInfo.icon;
+    
+    const modelNames: Record<string, string> = {
+      yandexgpt: "YandexGPT",
+      kandinsky: "Kandinsky",
+      gigachat: "GigaChat",
+      shedevrum: "Шедеврум",
+    };
+    
+    const displayName = modelNames[modelKey] || "Неизвестно";
+    
+    return { name: displayName, icon: ModelIcon, color: modelInfo.color };
+  };
+
   return (
     <div className="space-y-4 animate-fade-in">
       {showQuickStart && <QuickStartWizard onClose={() => setShowQuickStart(false)} />}
+      
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="p-6 space-y-4">
+              <div className="text-center">
+                <Trash2 className="h-12 w-12 text-destructive mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Удалить промт?</h3>
+                <p className="text-sm text-muted-foreground">Это действие нельзя отменить</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>
+                  Отмена
+                </Button>
+                <Button variant="destructive" className="flex-1" onClick={() => handleDelete(deleteConfirm)}>
+                  Удалить
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       
       <div className="flex gap-2">
         <Button
@@ -162,47 +225,49 @@ export function StudioMyPrompts() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((p) => (
-            <Card key={p.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline">{p.model}</Badge>  
-                      <Badge className={statusColors.draft}>Черновик</Badge>
-                      {p.rating && (
-                        <div className="flex items-center gap-1 text-amber-500">
-                          <Star className="h-3 w-3 fill-current" />
-                          <span className="text-xs">{p.rating}</span>
-                        </div>
-                      )}
+          {filtered.map((p) => {
+            const modelInfo = getModelDisplay(p.model || "custom");
+            const ModelIcon = modelInfo.icon;
+            
+            return (
+              <Card key={p.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <Badge variant="outline" className={`${modelInfo.color} border-current`}>
+                          <ModelIcon className="h-3 w-3 mr-1" />
+                          {modelInfo.name}
+                        </Badge>
+                        {p.rating && (
+                          <div className="flex items-center gap-1 text-amber-500">
+                            <Star className="h-3 w-3 fill-current" />
+                            <span className="text-xs">{p.rating}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {truncateText(p.text)}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                        <span>✨ {p.quality}%</span>
+                        {p.createdAt && <span>📅 {formatDate(p.createdAt)}</span>}
+                        <span>📝 {p.text.length} символов</span>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {truncateText(p.text)}
-                    </p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>Качество: {p.quality}%</span>
-                      {p.createdAt && <span>{formatDate(p.createdAt)}</span>}
+                    <div className="flex items-center gap-2">       
+                      <Button size="sm" variant="outline" onClick={() => handleCopy(p.text)} title="Копировать">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setDeleteConfirm(p.id)} title="Удалить" className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">       
-                    <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(p.text)}>
-                      Копировать
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => {
-                      const newFavs = activeView === "favorites"  
-                        ? favorites.filter(f => f.id !== p.id)    
-                        : [...favorites, { ...p, createdAt: Date.now() }];
-                      localStorage.setItem('promptcraft_favorites', JSON.stringify(newFavs));
-                      setFavorites(newFavs);
-                    }}>
-                      <Heart className={`h-4 w-4 ${activeView === "favorites" ? "fill-current text-red-500" : ""}`} />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
