@@ -380,3 +380,39 @@ html, body {
 .animate-shimmer {
   animation: shimmer 2s ease-in-out infinite;
 }
+
+/* ============================================ */
+/* CRITICAL FIX: Dropdown Animations           */
+
+/* ============================================ */
+/* CRITICAL FIX: Dropdown Animations           */
+/* ============================================ */
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.2s ease;
+}
+
+/* Fix: QuickStartWizard z-index */
+.fixed.inset-0.bg-black\/50 {
+  z-index: 9999 !important;
+}
+
+/* Fix: Ensure dropdowns render properly */
+.absolute.right-0.top-full {
+  min-width: 200px;
+}
+
+/* Shimmer эффект для прогресс-бара */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}

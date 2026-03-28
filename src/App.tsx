@@ -61,15 +61,13 @@ const App = () => (
               <Sonner />
               <BrowserRouter>
                 <Routes>
-                  <Route path="/" element={<Navigate to="/login" replace />} />
+                  <Route path="/" element={<Navigate to="/market" replace />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/onboarding" element={<Onboarding />} />
+                  <Route path="/publish" element={<PublishPromptPage />} />
                   <Route element={<AppLayout />}>
-                    <Route path="/feed" element={<Navigate to="/market" replace />} />
-                    <Route path="/search" element={<SearchCatalog />} />
                     <Route path="/market" element={<PromptMarket />} />
-                    <Route path="/publish" element={<PublishPromptPage />} />
                     <Route path="/prompt/:id" element={<PromptDetail />} />
                     <Route path="/assistant" element={<AssistantPage />} />
                     <Route path="/studio" element={<StudioPage />} />

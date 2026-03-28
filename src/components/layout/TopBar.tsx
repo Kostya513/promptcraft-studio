@@ -89,7 +89,7 @@ export function TopBar() {
         </Sheet>
 
         {/* Логотип */}
-        <Link to="/market" className="flex items-center gap-2 flex-shrink-0">
+        <Link to="/studio" className="flex items-center gap-2 flex-shrink-0">
           <div className="relative p-[1.5px] rounded-[3px] bg-gradient-to-br from-yellow-400 via-purple-600 via-blue-500 to-purple-800">
             <img src="/logo.png" alt="Промт-Студия" className="h-8 w-8 object-contain bg-white rounded-[2px] flex-shrink-0" />
           </div>
@@ -115,7 +115,7 @@ export function TopBar() {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-xl shadow-elevated z-50 overflow-hidden animate-slide-up">
+            <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-xl shadow-elevated z-50 overflow-visible">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">        
                 <h3 className="font-semibold text-sm">Уведомления</h3>
                 <div className="flex items-center gap-2">
@@ -162,7 +162,7 @@ export function TopBar() {
             </button>
 
             {showProfile && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-elevated z-50 overflow-hidden animate-slide-up">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-elevated z-50 overflow-visible">
                 <div className="px-4 py-3 border-b border-border">
                   <p className="font-medium text-sm truncate">{user.name || "Пользователь"}</p>
                   <p className="text-xs text-muted-foreground truncate">{user.email}</p>

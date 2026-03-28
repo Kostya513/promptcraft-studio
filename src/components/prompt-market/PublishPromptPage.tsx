@@ -100,7 +100,7 @@ export default function PublishPromptPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <Link to="/search" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+      <Link to="/market" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" /> Назад в маркет
       </Link>
 

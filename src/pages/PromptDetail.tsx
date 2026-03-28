@@ -7,7 +7,7 @@ export default function PromptDetail() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       {/* Back */}
-      <Link to="/feed" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+      <Link to="/studio" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" /> Назад
       </Link>
 

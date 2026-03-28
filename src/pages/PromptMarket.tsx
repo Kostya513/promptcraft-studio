@@ -92,6 +92,8 @@ export default function PromptMarket() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
+      <h1 className="text-2xl font-bold mb-2">Prompt Market</h1>
+      <p className="text-sm text-muted-foreground mb-6">Маркетплейс промтов и AI-инструментов</p>
       {/* Search bar */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">

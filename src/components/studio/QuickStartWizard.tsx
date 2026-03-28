@@ -123,7 +123,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
   const { mode, setMode, settings, updateSettings } = useExpertMode();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const [currentStep, setCurrentStep] = useState<Step>("mode");
+  const [currentStep, setCurrentStep] = useState<Step>("category");
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -404,7 +404,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex z-[99999] items-center justify-center z-50 p-4" onClick={onClose}>
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 right-0 flex justify-end p-4 bg-background">
           <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Store, Bot, Vault, Settings, FolderHeart } from "lucide-react";
 
 const mobileNavItems = [
-  { title: "Маркет", path: "/market", icon: Store },
+  { title: "Маркет", path: "/studio", icon: Store },
   { title: "Studio", path: "/studio", icon: FolderHeart },
   { title: "Аккаунты", path: "/accounts", icon: Vault },
   { title: "Сообщество", path: "/community", icon: Bot },
