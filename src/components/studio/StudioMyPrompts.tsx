@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import {
   Plus, Search, Pencil, Trash2, Archive, BarChart3,
-  Download, Tag, MoreHorizontal, FileText, Eye, ShoppingCart,
+  Download, Tag, MoreHorizontal, FileText, Eye, ShoppingCart,     
   Star, Heart, FolderHeart
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getPrompts, getDrafts, getFavorites, getHistory, StoredPrompt, HistoryItem } from "@/lib/local-storage";
 import { Button } from "@/components/ui/button";
+import QuickStartWizard from "./QuickStartWizard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,15 +33,15 @@ const statusColors: Record<PromptStatus, string> = {
 type SortKey = "date" | "sales" | "name";
 
 export function StudioMyPrompts() {
-  const [filter, setFilter] = useState<PromptStatus>("all");
+  const [filter, setFilter] = useState<PromptStatus>("all");      
   const [sort, setSort] = useState<SortKey>("date");
   const [search, setSearch] = useState("");
-  const [drafts, setDrafts] = useState<StoredPrompt[]>([]);
-  const [favorites, setFavorites] = useState<StoredPrompt[]>([]);
+  const [drafts, setDrafts] = useState<StoredPrompt[]>([]);       
+  const [favorites, setFavorites] = useState<StoredPrompt[]>([]); 
   const [allPrompts, setAllPrompts] = useState<StoredPrompt[]>([]);
   const [activeView, setActiveView] = useState<"prompts" | "favorites">("prompts");
+  const [showQuickStart, setShowQuickStart] = useState(false);    
 
-  // Загрузка данных из localStorage
   useEffect(() => {
     const loadedDrafts = getDrafts();
     const loadedFavorites = getFavorites();
@@ -48,10 +49,10 @@ export function StudioMyPrompts() {
     setDrafts(loadedDrafts);
     setFavorites(loadedFavorites);
     setAllPrompts(loadedPrompts);
-    console.log("StudioMyPrompts загружен:", { 
-      drafts: loadedDrafts.length, 
-      favorites: loadedFavorites.length, 
-      prompts: loadedPrompts.length 
+    console.log("StudioMyPrompts загружен:", {
+      drafts: loadedDrafts.length,
+      favorites: loadedFavorites.length,
+      prompts: loadedPrompts.length
     });
   }, []);
 
@@ -60,7 +61,7 @@ export function StudioMyPrompts() {
   const filtered = currentPrompts
     .filter((p) => {
       if (filter === "all") return true;
-      if (filter === "draft") return true; // Все черновики
+      if (filter === "draft") return true;
       return true;
     })
     .filter((p) => !search || p.text.toLowerCase().includes(search.toLowerCase()))
@@ -71,7 +72,7 @@ export function StudioMyPrompts() {
     });
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString("ru-RU", {
+    return new Date(timestamp).toLocaleDateString("ru-RU", {      
       day: "numeric",
       month: "short",
       year: "numeric"
@@ -85,7 +86,8 @@ export function StudioMyPrompts() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* View Tabs */}
+      {showQuickStart && <QuickStartWizard onClose={() => setShowQuickStart(false)} />}
+      
       <div className="flex gap-2">
         <Button
           variant={activeView === "prompts" ? "default" : "outline"}
@@ -107,7 +109,6 @@ export function StudioMyPrompts() {
         </Button>
       </div>
 
-      {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -120,27 +121,26 @@ export function StudioMyPrompts() {
         </div>
         <select
           value={sort}
-          onChange={(e) => setSort(e.target.value as SortKey)}
+          onChange={(e) => setSort(e.target.value as SortKey)}    
           className="px-3 py-2.5 rounded-xl bg-background border border-border text-sm sm:w-40 focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
           <option value="date">По дате</option>
           <option value="sales">По рейтингу</option>
           <option value="name">По названию</option>
         </select>
-        <Link
-          to="/studio?tab=generator"
+        <Button
+          onClick={() => setShowQuickStart(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
         >
           <Plus className="h-4 w-4" /> Создать
-        </Link>
+        </Button>
       </div>
 
-      {/* Filter tabs */}
       <div className="flex gap-1 overflow-x-auto pb-1">
         {filterTabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setFilter(tab.key as PromptStatus)}
+            onClick={() => setFilter(tab.key as PromptStatus)}    
             className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               filter === tab.key
                 ? "bg-primary text-primary-foreground"
@@ -152,16 +152,13 @@ export function StudioMyPrompts() {
         ))}
       </div>
 
-      {/* Content */}
       {filtered.length === 0 ? (
         <div className="text-center py-12">
           <FolderHeart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground mb-4">
             {activeView === "favorites" ? "У вас нет избранных промтов" : "У вас ещё нет промтов"}
           </p>
-          <Link to="/studio?tab=generator">
-            <Button>Создать первый промт</Button>
-          </Link>
+          <Button onClick={() => setShowQuickStart(true)}>Создать первый промт</Button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -171,7 +168,7 @@ export function StudioMyPrompts() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline">{p.model}</Badge>
+                      <Badge variant="outline">{p.model}</Badge>  
                       <Badge className={statusColors.draft}>Черновик</Badge>
                       {p.rating && (
                         <div className="flex items-center gap-1 text-amber-500">
@@ -188,13 +185,13 @@ export function StudioMyPrompts() {
                       {p.createdAt && <span>{formatDate(p.createdAt)}</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">       
                     <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(p.text)}>
                       Копировать
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => {
-                      const newFavs = activeView === "favorites" 
-                        ? favorites.filter(f => f.id !== p.id)
+                      const newFavs = activeView === "favorites"  
+                        ? favorites.filter(f => f.id !== p.id)    
                         : [...favorites, { ...p, createdAt: Date.now() }];
                       localStorage.setItem('promptcraft_favorites', JSON.stringify(newFavs));
                       setFavorites(newFavs);
