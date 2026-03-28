@@ -11,24 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-
-type PromptStatus = "published" | "draft" | "moderation" | "archive" | "all";
-
-const statusLabels: Record<PromptStatus, string> = {
-  published: "Опубликован",
-  draft: "Черновик",
-  moderation: "На модерации",
-  archive: "В архиве",
-  all: "Все",
-};
-
-const statusColors: Record<PromptStatus, string> = {
-  published: "bg-success/10 text-success",
-  draft: "bg-muted text-muted-foreground",
-  moderation: "bg-warning/10 text-warning",
-  archive: "bg-muted text-muted-foreground",
-  all: "bg-primary/10 text-primary",
-};
+import { PromptData, AIModel, PromptStatus } from "@/types/prompt";
 
 type SortKey = "date" | "sales" | "name";
 
@@ -41,9 +24,23 @@ const AI_ICONS: Record<string, { icon: any; color: string }> = {
   manual: { icon: FileText, color: "text-muted-foreground" },
 };
 
+const statusLabels: Record<PromptStatus, string> = {
+  draft: "Черновик",
+  published: "Опубликован",
+  moderation: "На модерации",
+  archived: "В архиве",
+};
+
+const statusColors: Record<PromptStatus, string> = {
+  draft: "bg-muted text-muted-foreground",
+  published: "bg-success/10 text-success",
+  moderation: "bg-warning/10 text-warning",
+  archived: "bg-muted text-muted-foreground",
+};
+
 export function StudioMyPrompts() {
   const { toast } = useToast();
-  const [filter, setFilter] = useState<PromptStatus>("all");      
+  const [filter, setFilter] = useState<PromptStatus | "all">("all");      
   const [sort, setSort] = useState<SortKey>("date");
   const [search, setSearch] = useState("");
   const [drafts, setDrafts] = useState<StoredPrompt[]>([]);       
@@ -72,7 +69,6 @@ export function StudioMyPrompts() {
   const filtered = currentPrompts
     .filter((p) => {
       if (filter === "all") return true;
-      if (filter === "draft") return true;
       return true;
     })
     .filter((p) => !search || p.text.toLowerCase().includes(search.toLowerCase()))
@@ -120,9 +116,7 @@ export function StudioMyPrompts() {
       shedevrum: "Шедеврум",
     };
     
-    const displayName = modelNames[modelKey] || "Неизвестно";
-    
-    return { name: displayName, icon: ModelIcon, color: modelInfo.color };
+    return { name: modelNames[modelKey] || "Неизвестно", icon: ModelIcon, color: modelInfo.color };
   };
 
   return (
@@ -200,10 +194,16 @@ export function StudioMyPrompts() {
       </div>
 
       <div className="flex gap-1 overflow-x-auto pb-1">
-        {filterTabs.map((tab) => (
+        {[
+          { key: "all", label: "Все" },
+          { key: "draft", label: "Черновики" },
+          { key: "published", label: "Опубликованные" },
+          { key: "moderation", label: "На модерации" },
+          { key: "archive", label: "Архив" },
+        ].map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setFilter(tab.key as PromptStatus)}    
+            onClick={() => setFilter(tab.key as PromptStatus | "all")}    
             className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               filter === tab.key
                 ? "bg-primary text-primary-foreground"
@@ -273,11 +273,3 @@ export function StudioMyPrompts() {
     </div>
   );
 }
-
-const filterTabs = [
-  { key: "all", label: "Все" },
-  { key: "draft", label: "Черновики" },
-  { key: "published", label: "Опубликованные" },
-  { key: "moderation", label: "На модерации" },
-  { key: "archive", label: "Архив" },
-];
