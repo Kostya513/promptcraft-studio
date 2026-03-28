@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { StudioDashboard } from "@/components/studio/StudioDashboard";
 import { StudioMyPrompts } from "@/components/studio/StudioMyPrompts";
 import { StudioLibrary } from "@/components/studio/StudioLibrary";
@@ -10,7 +11,7 @@ import PromptGenerator from "@/pages/PromptGenerator";
 
 const tabs = [
   { key: "main", label: "Главная" },
-  { key: "prompts", label: "Мои промпты" },
+  { key: "prompts", label: "Мои промты" },
   { key: "generator", label: "AI Генератор" },
   { key: "library", label: "Библиотека" },
   { key: "finances", label: "Финансы" },
@@ -20,7 +21,18 @@ const tabs = [
 ];
 
 export default function StudioPage() {
-  const [activeTab, setActiveTab] = useState("main");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "main");
+  
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
+
+  const handleTabChange = (tabKey: string) => {
+    setActiveTab(tabKey);
+    setSearchParams({ tab: tabKey });
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -29,12 +41,11 @@ export default function StudioPage() {
         Управляйте своим контентом, финансами и библиотекой
       </p>
 
-      {/* Tabs */}
       <div className="flex gap-1 mb-6 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
         {tabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => handleTabChange(tab.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
               activeTab === tab.key
                 ? "gradient-primary text-primary-foreground"

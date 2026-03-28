@@ -456,7 +456,7 @@ export default function PublishWizard({ promptText, onClose }: PublishWizardProp
                 ))}
               </div>
             ) : (
-              <Card className="border-dashed">
+              <Card className="border-dashed cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                 <CardContent className="py-6 text-center text-muted-foreground">
                   <Upload className="h-8 w-8 mx-auto mb-2" />     
                   <p className="text-sm">Нет файлов</p>
