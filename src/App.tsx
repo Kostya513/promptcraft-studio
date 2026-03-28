@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { UserProvider } from "./contexts/UserContext";
 import { AdminProvider } from "./contexts/AdminContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
+import { ExpertModeProvider } from "./contexts/ExpertModeContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import AdminLayout from "./components/admin/AdminLayout";
 import LoginPage from "./pages/LoginPage";
@@ -52,63 +53,64 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <UserProvider>
-        <AdminProvider>
-          <NotificationProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Navigate to="/login" replace />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/onboarding" element={<Onboarding />} />
-              <Route element={<AppLayout />}>
-                <Route path="/feed" element={<Navigate to="/market" replace />} />
-                <Route path="/search" element={<SearchCatalog />} />
-                <Route path="/market" element={<PromptMarket />} />
-                <Route path="/publish" element={<PublishPromptPage />} />
-                <Route path="/prompt/:id" element={<PromptDetail />} />
-                <Route path="/assistant" element={<AssistantPage />} />
-                <Route path="/studio" element={<StudioPage />} />
-                <Route path="/accounts" element={<AccountManager />} />
-                <Route path="/community" element={<CommunityPage />} />
-                <Route path="/favorites" element={<FavoritesPage />} />
-                <Route path="/support" element={<SupportPage />} />
-                <Route path="/support/about" element={<AboutService />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/support/about/offer" element={<OfferPage />} />
-                <Route path="/support/about/privacy" element={<PrivacyPolicy />} />
-                <Route path="/support/about/terms" element={<TermsPage />} />
-                <Route path="/support/about/contacts" element={<ContactsPage />} />
+      <ExpertModeProvider>
+        <UserProvider>
+          <AdminProvider>
+            <NotificationProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/login" replace />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route path="/onboarding" element={<Onboarding />} />
+                  <Route element={<AppLayout />}>
+                    <Route path="/feed" element={<Navigate to="/market" replace />} />
+                    <Route path="/search" element={<SearchCatalog />} />
+                    <Route path="/market" element={<PromptMarket />} />
+                    <Route path="/publish" element={<PublishPromptPage />} />
+                    <Route path="/prompt/:id" element={<PromptDetail />} />
+                    <Route path="/assistant" element={<AssistantPage />} />
+                    <Route path="/studio" element={<StudioPage />} />
+                    <Route path="/accounts" element={<AccountManager />} />
+                    <Route path="/community" element={<CommunityPage />} />
+                    <Route path="/favorites" element={<FavoritesPage />} />
+                    <Route path="/support" element={<SupportPage />} />
+                    <Route path="/support/about" element={<AboutService />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route path="/support/about/offer" element={<OfferPage />} />
+                    <Route path="/support/about/privacy" element={<PrivacyPolicy />} />
+                    <Route path="/support/about/terms" element={<TermsPage />} />
+                    <Route path="/support/about/contacts" element={<ContactsPage />} />
 
-                <Route path="/blog" element={<Blog />} />
-                <Route path="/blog/create" element={<CreatePost />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/referrals" element={<ReferralPage />} />
-                <Route path="/team" element={<TeamAccountsPage />} />
-                <Route path="/custom-orders" element={<CustomOrdersPage />} />
-              </Route>
-              {/* Admin Panel */}
-              <Route path="/admin" element={<AdminLogin />} />
-              <Route element={<AdminLayout />}>
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                <Route path="/admin/users" element={<AdminUsers />} />
-                <Route path="/admin/moderation" element={<AdminModeration />} />
-                <Route path="/admin/finances" element={<AdminFinances />} />
-                <Route path="/admin/tickets" element={<AdminTickets />} />
-                <Route path="/admin/notifications" element={<AdminNotifications />} />
-                <Route path="/admin/settings" element={<AdminSettings />} />
-                <Route path="/admin/audit" element={<AdminAudit />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-          </NotificationProvider>
-        </AdminProvider>
-      </UserProvider>
+                    <Route path="/blog" element={<Blog />} />
+                    <Route path="/blog/create" element={<CreatePost />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/notifications" element={<NotificationsPage />} />
+                    <Route path="/referrals" element={<ReferralPage />} />
+                    <Route path="/team" element={<TeamAccountsPage />} />
+                    <Route path="/custom-orders" element={<CustomOrdersPage />} />
+                  </Route>
+                  <Route path="/admin" element={<AdminLogin />} />
+                  <Route element={<AdminLayout />}>
+                    <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                    <Route path="/admin/users" element={<AdminUsers />} />
+                    <Route path="/admin/moderation" element={<AdminModeration />} />
+                    <Route path="/admin/finances" element={<AdminFinances />} />
+                    <Route path="/admin/tickets" element={<AdminTickets />} />
+                    <Route path="/admin/notifications" element={<AdminNotifications />} />
+                    <Route path="/admin/settings" element={<AdminSettings />} />
+                    <Route path="/admin/audit" element={<AdminAudit />} />
+                  </Route>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </NotificationProvider>
+          </AdminProvider>
+        </UserProvider>
+      </ExpertModeProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
