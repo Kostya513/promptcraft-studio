@@ -3,17 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Upload, Sparkles, Check, ArrowRight, ArrowLeft, Image, FileText, Wand2, ShoppingBag, MessageSquare, Briefcase, Code, Palette, BarChart3, GraduationCap, Video, PenTool, MoreHorizontal, X, Clock, Cpu, Star, Layers } from "lucide-react";
+import { Upload, Sparkles, Check, ArrowRight, ArrowLeft, Image, FileText, Wand2, ShoppingBag, MessageSquare, Briefcase, Code, Palette, BarChart3, GraduationCap, Video, PenTool, MoreHorizontal, X, Clock, Cpu, Star, Layers, Download, Sliders, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generatePromptWithYandexGPT } from "@/lib/ai-api";
 import { recommendAI, type PlatformType } from "@/lib/ai-orchestrator";
+import { useExpertMode } from "@/contexts/ExpertModeContext";
+import { autoSave } from "@/lib/auto-save";
+import { exportAndDownload } from "@/lib/export-utils";
+import { PromptData, PromptVersion, AIModel, PromptCategory, ExportFormat } from "@/types/prompt";
 
 interface QuickStartWizardProps {
   onClose: () => void;
   onPublish?: (data: any) => void;
 }
 
-type Step = "category" | "upload" | "describe" | "style" | "ai-process" | "result";
+type Step = "mode" | "category" | "upload" | "describe" | "style" | "ai-process" | "result";
 
 type CategoryType = "marketplace" | "social" | "business" | "development" | "creative" | "analytics" | "education" | "content" | "video" | "other";
 
@@ -116,9 +120,10 @@ const AI_ICONS: Record<string, { icon: any; color: string }> = {
 
 export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizardProps) {
   const { toast } = useToast();
+  const { mode, setMode, settings, updateSettings } = useExpertMode();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const [currentStep, setCurrentStep] = useState<Step>("category");
+  const [currentStep, setCurrentStep] = useState<Step>("mode");
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -132,6 +137,8 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
   const [version, setVersion] = useState(1.0);
   const [compareTab, setCompareTab] = useState<CompareTab>("after");
   const [generationStartTime, setGenerationStartTime] = useState<number>(0);
+  const [promptId, setPromptId] = useState<string>("");
+  const [versions, setVersions] = useState<PromptVersion[]>([]);
 
   const aiModels = [
     { id: "yandexgpt", name: "YandexGPT", icon: "🧠", desc: "Лучший для текстов и промтов", strength: "Точность, SEO" },
@@ -147,6 +154,37 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (result && promptId) {
+      const promptData: PromptData = {
+        id: promptId,
+        text: result.prompt,
+        title: result.title,
+        description: result.description,
+        category: selectedCategory as PromptCategory || "other",
+        model: selectedAI as AIModel,
+        status: "draft",
+        quality: result.quality || 90,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        imageUrl: result.imageUrl,
+        originalDescription: result.originalDescription,
+        version,
+        versions,
+        metadata: {
+          generationTime: result.generationTime || 0,
+          aiModel: selectedAI as AIModel,
+          style: selectedStyle,
+          temperature: settings.temperature,
+          maxTokens: settings.maxTokens,
+          detailLevel: settings.detailLevel,
+          creativity: settings.creativity,
+        },
+      };
+      autoSave(promptData);
+    }
+  }, [result, version, promptId]);
 
   const handleCategorySelect = (categoryId: CategoryType) => {
     setSelectedCategory(categoryId);
@@ -192,6 +230,8 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
 
       const generationTime = Math.round((Date.now() - generationStartTime) / 1000);
       const quality = Math.floor(Math.random() * 15) + 85;
+      const newId = `prompt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setPromptId(newId);
 
       const generatedResult: GeneratedResult = {
         prompt: variations[0] || description,
@@ -204,6 +244,14 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
         generationTime,
         quality,
       };
+
+      const newVersion: PromptVersion = {
+        version: 1,
+        text: variations[0] || description,
+        createdAt: Date.now(),
+        changes: "Первая генерация",
+      };
+      setVersions([newVersion]);
 
       setResult(generatedResult);
       setProgress(100);
@@ -241,10 +289,16 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
         description: variations.join("\n\n"),
       });
       
-      setVersion(prev => {
-        const newVersion = Math.round((prev + 0.1) * 10) / 10;
-        return newVersion;
-      });
+      const newVersionNum = Math.round((version + 0.1) * 10) / 10;
+      setVersion(newVersionNum);
+      
+      const newVersion: PromptVersion = {
+        version: newVersionNum,
+        text: variations[0] || improvedPrompt,
+        createdAt: Date.now(),
+        changes: feedback,
+      };
+      setVersions(prev => [...prev, newVersion]);
       
       setMessages(prev => [...prev, { role: "assistant", text: variations[0] || improvedPrompt, timestamp: Date.now() }]);
       
@@ -256,6 +310,44 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
     }
   };
 
+  const handleRollback = (targetVersion: number) => {
+    const target = versions.find(v => v.version === targetVersion);
+    if (target && result) {
+      setResult({ ...result, prompt: target.text });
+      setVersion(targetVersion);
+      toast({ title: "Откат выполнен", description: `Версия ${targetVersion} восстановлена` });
+    }
+  };
+
+  const handleExport = async (format: ExportFormat) => {
+    if (!result || !promptId) return;
+    
+    const promptData: PromptData = {
+      id: promptId,
+      text: result.prompt,
+      title: result.title,
+      description: result.description,
+      category: selectedCategory as PromptCategory || "other",
+      model: selectedAI as AIModel,
+      status: "draft",
+      quality: result.quality || 90,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      version,
+      versions,
+      metadata: {
+        generationTime: result.generationTime || 0,
+        aiModel: selectedAI as AIModel,
+      },
+    };
+    
+    const success = await exportAndDownload(promptData, format);
+    toast({ 
+      title: success ? "Экспорт успешен" : "Ошибка экспорта", 
+      description: success ? `Файл скачан в формате ${format.toUpperCase()}` : "Не удалось экспортировать" 
+    });
+  };
+
   const handlePublish = () => {
     if (result && onPublish) {
       onPublish(result);
@@ -265,6 +357,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
 
   const getStepLabel = (step: Step) => {
     const labels: Record<Step, string> = {
+      mode: "Режим",
       category: "Категория",
       upload: "Файл",
       describe: "Описание",
@@ -277,6 +370,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
 
   const getStepIcon = (step: Step) => {
     const icons: Record<Step, any> = {
+      mode: Sliders,
       category: ShoppingBag,
       upload: Upload,
       describe: FileText,
@@ -287,9 +381,12 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
     return icons[step];
   };
 
-  const steps: Step[] = selectedCategory === "marketplace" || selectedCategory === "social" 
-    ? ["category", "upload", "describe", "style", "ai-process", "result"]
-    : ["category", "describe", "style", "ai-process", "result"];
+  const isExpertMode = mode === "expert";
+  const isSimpleMode = !isExpertMode;
+
+  const steps: Step[] = isExpertMode
+    ? ["mode", "category", "upload", "describe", "style", "ai-process", "result"]
+    : ["category", "upload", "describe", "style", "ai-process", "result"];
 
   const getAIModelInfo = (modelId: string) => {
     const modelKey = modelId.toLowerCase();
@@ -337,6 +434,63 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
               );
             })}
           </div>
+
+          {currentStep === "mode" && isExpertMode && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold mb-2">Выберите режим работы</h2>
+                <p className="text-muted-foreground">Simple для быстрых задач, Expert для полного контроля</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <Card className={`cursor-pointer transition-all ${isSimpleMode ? "border-primary ring-2 ring-primary" : "hover:border-primary/50"}`} onClick={() => setMode("simple")}>
+                  <CardContent className="p-6 text-center">
+                    <Sparkles className="h-12 w-12 mx-auto mb-4 text-primary" />
+                    <h3 className="font-semibold text-lg mb-2">Simple</h3>
+                    <p className="text-sm text-muted-foreground">Быстрая генерация с настройками по умолчанию</p>
+                  </CardContent>
+                </Card>
+                
+                <Card className={`cursor-pointer transition-all ${isExpertMode ? "border-primary ring-2 ring-primary" : "hover:border-primary/50"}`} onClick={() => setMode("expert")}>
+                  <CardContent className="p-6 text-center">
+                    <Sliders className="h-12 w-12 mx-auto mb-4 text-primary" />
+                    <h3 className="font-semibold text-lg mb-2">Expert</h3>
+                    <p className="text-sm text-muted-foreground">Полный контроль над параметрами AI</p>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {isExpertMode && (
+                <Card>
+                  <CardHeader>
+                    <h3 className="font-semibold">Параметры AI</h3>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Температура: {settings.temperature}</label>
+                      <input type="range" min="0.1" max="1" step="0.1" value={settings.temperature} onChange={(e) => updateSettings({ temperature: parseFloat(e.target.value) })} className="w-full" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Макс. токенов: {settings.maxTokens}</label>
+                      <input type="range" min="100" max="4000" step="100" value={settings.maxTokens} onChange={(e) => updateSettings({ maxTokens: parseInt(e.target.value) })} className="w-full" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Детализация: {settings.detailLevel}/10</label>
+                      <input type="range" min="1" max="10" step="1" value={settings.detailLevel} onChange={(e) => updateSettings({ detailLevel: parseInt(e.target.value) })} className="w-full" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Креативность: {settings.creativity}</label>
+                      <input type="range" min="0.1" max="1" step="0.1" value={settings.creativity} onChange={(e) => updateSettings({ creativity: parseFloat(e.target.value) })} className="w-full" />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              <Button className="w-full" onClick={() => setCurrentStep("category")}>
+                Продолжить <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          )}
 
           {currentStep === "category" && (
             <div className="space-y-4">
@@ -411,7 +565,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
             <div className="space-y-4">
               <div className="text-center">
                 <h2 className="text-2xl font-bold mb-2">
-                  Шаг {selectedCategory === "marketplace" || selectedCategory === "social" ? "3" : "2"}: Опиши задачу
+                  Шаг {isExpertMode ? "3" : "2"}: Опиши задачу
                 </h2>
                 <p className="text-muted-foreground">AI создаст качественный промт</p>
               </div>
@@ -424,7 +578,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
               />
               
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setCurrentStep(selectedCategory === "marketplace" || selectedCategory === "social" ? "upload" : "category")}>
+                <Button variant="outline" className="flex-1" onClick={() => setCurrentStep("upload")}>
                   <ArrowLeft className="h-4 w-4 mr-2" /> Назад
                 </Button>
                 <Button className="flex-1" onClick={() => setCurrentStep("style")}>
@@ -438,7 +592,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
             <div className="space-y-4">
               <div className="text-center">
                 <h2 className="text-2xl font-bold mb-2">
-                  Шаг {selectedCategory === "marketplace" || selectedCategory === "social" ? "4" : "3"}: Выбери стиль
+                  Шаг {isExpertMode ? "4" : "3"}: Выбери стиль
                 </h2>
                 <p className="text-muted-foreground">Как должен выглядеть результат</p>
               </div>
@@ -463,7 +617,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
               </div>
               
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setCurrentStep(selectedCategory === "marketplace" || selectedCategory === "social" ? "upload" : "describe")}>
+                <Button variant="outline" className="flex-1" onClick={() => setCurrentStep("describe")}>
                   <ArrowLeft className="h-4 w-4 mr-2" /> Назад
                 </Button>
                 <Button className="flex-1" onClick={() => setCurrentStep("ai-process")} disabled={!selectedStyle}>
@@ -477,7 +631,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold mb-2">
-                  Шаг {selectedCategory === "marketplace" || selectedCategory === "social" ? "5" : "4"}: AI создаёт
+                  Шаг {isExpertMode ? "5" : "4"}: AI создаёт
                 </h2>
                 <p className="text-muted-foreground">Используем {aiModels.find(m => m.id === selectedAI)?.name}</p>
               </div>
@@ -526,34 +680,18 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
                 <p className="text-muted-foreground">AI создал промт (версия {version})</p>
               </div>
               
-              {/* Before/After Compare Tabs */}
               <Card>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold">📊 Сравнение результата</h3>
                     <div className="flex gap-1">
-                      <Button
-                        variant={compareTab === "before" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCompareTab("before")}
-                        className="text-xs"
-                      >
+                      <Button variant={compareTab === "before" ? "default" : "outline"} size="sm" onClick={() => setCompareTab("before")} className="text-xs">
                         <FileText className="h-3 w-3 mr-1" /> До
                       </Button>
-                      <Button
-                        variant={compareTab === "after" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCompareTab("after")}
-                        className="text-xs"
-                      >
+                      <Button variant={compareTab === "after" ? "default" : "outline"} size="sm" onClick={() => setCompareTab("after")} className="text-xs">
                         <Sparkles className="h-3 w-3 mr-1" /> После
                       </Button>
-                      <Button
-                        variant={compareTab === "details" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCompareTab("details")}
-                        className="text-xs"
-                      >
+                      <Button variant={compareTab === "details" ? "default" : "outline"} size="sm" onClick={() => setCompareTab("details")} className="text-xs">
                         <Layers className="h-3 w-3 mr-1" /> Детали
                       </Button>
                     </div>
@@ -624,6 +762,51 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
                   )}
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <h3 className="font-semibold">📥 Экспорт промта</h3>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={() => handleExport("json")}>
+                      <Download className="h-3 w-3 mr-1" /> JSON
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleExport("txt")}>
+                      <Download className="h-3 w-3 mr-1" /> TXT
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleExport("markdown")}>
+                      <Download className="h-3 w-3 mr-1" /> MD
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleExport("code")}>
+                      <Download className="h-3 w-3 mr-1" /> CODE
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {isExpertMode && versions.length > 1 && (
+                <Card>
+                  <CardHeader>
+                    <h3 className="font-semibold">📜 История версий</h3>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {versions.map((v) => (
+                        <div key={v.version} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                          <div>
+                            <p className="text-sm font-medium">Версия {v.version}</p>
+                            <p className="text-xs text-muted-foreground">{v.changes}</p>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => handleRollback(v.version)} disabled={v.version === version}>
+                            <RotateCcw className="h-3 w-3 mr-1" /> Откат
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader>
