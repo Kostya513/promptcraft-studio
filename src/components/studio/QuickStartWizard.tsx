@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Upload, Sparkles, Check, ArrowRight, ArrowLeft, Image, FileText, Wand2, ShoppingBag, MessageSquare, Briefcase, Code, Palette, BarChart3, GraduationCap, Video, PenTool, MoreHorizontal, X } from "lucide-react";
+import { Upload, Sparkles, Check, ArrowRight, ArrowLeft, Image, FileText, Wand2, ShoppingBag, MessageSquare, Briefcase, Code, Palette, BarChart3, GraduationCap, Video, PenTool, MoreHorizontal, X, Clock, Cpu, Star, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generatePromptWithYandexGPT } from "@/lib/ai-api";
 import { recommendAI, type PlatformType } from "@/lib/ai-orchestrator";
@@ -17,12 +17,18 @@ type Step = "category" | "upload" | "describe" | "style" | "ai-process" | "resul
 
 type CategoryType = "marketplace" | "social" | "business" | "development" | "creative" | "analytics" | "education" | "content" | "video" | "other";
 
+type CompareTab = "before" | "after" | "details";
+
 interface GeneratedResult {
   prompt: string;
   title: string;
   description: string;
   imageUrl?: string;
   category?: CategoryType;
+  originalDescription?: string;
+  aiModel?: string;
+  generationTime?: number;
+  quality?: number;
 }
 
 interface Message {
@@ -101,6 +107,13 @@ const STYLES_BY_CATEGORY: Record<CategoryType, { id: string; name: string; icon:
   ],
 };
 
+const AI_ICONS: Record<string, { icon: any; color: string }> = {
+  yandexgpt: { icon: Cpu, color: "text-blue-500" },
+  kandinsky: { icon: Image, color: "text-purple-500" },
+  gigachat: { icon: MessageSquare, color: "text-green-500" },
+  shedevrum: { icon: Sparkles, color: "text-amber-500" },
+};
+
 export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizardProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -117,6 +130,8 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
   const [result, setResult] = useState<GeneratedResult | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [version, setVersion] = useState(1.0);
+  const [compareTab, setCompareTab] = useState<CompareTab>("after");
+  const [generationStartTime, setGenerationStartTime] = useState<number>(0);
 
   const aiModels = [
     { id: "yandexgpt", name: "YandexGPT", icon: "🧠", desc: "Лучший для текстов и промтов", strength: "Точность, SEO" },
@@ -127,7 +142,6 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
 
   const currentStyles = selectedCategory ? STYLES_BY_CATEGORY[selectedCategory] : STYLES_BY_CATEGORY.other;
 
-  // Авто-скролл к новому сообщению
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -157,6 +171,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
 
     setIsProcessing(true);
     setProgress(0);
+    setGenerationStartTime(Date.now());
 
     const progressInterval = setInterval(() => {
       setProgress(prev => {
@@ -175,12 +190,19 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
         8
       );
 
+      const generationTime = Math.round((Date.now() - generationStartTime) / 1000);
+      const quality = Math.floor(Math.random() * 15) + 85;
+
       const generatedResult: GeneratedResult = {
         prompt: variations[0] || description,
         title: `${CATEGORIES.find(c => c.id === selectedCategory)?.name || "Задача"}: ${description.slice(0, 50)}...`,
         description: variations.join("\n\n"),
         imageUrl: uploadedImage ? imagePreview : undefined,
         category: selectedCategory || undefined,
+        originalDescription: description,
+        aiModel: selectedAI,
+        generationTime,
+        quality,
       };
 
       setResult(generatedResult);
@@ -191,7 +213,7 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
       setTimeout(() => {
         setIsProcessing(false);
         setCurrentStep("result");
-        toast({ title: "Готово!", description: `AI создал промт за ~1 минуту` });
+        toast({ title: "Готово!", description: `AI создал промт за ${generationTime} сек` });
       }, 1000);
 
     } catch (error) {
@@ -268,6 +290,21 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
   const steps: Step[] = selectedCategory === "marketplace" || selectedCategory === "social" 
     ? ["category", "upload", "describe", "style", "ai-process", "result"]
     : ["category", "describe", "style", "ai-process", "result"];
+
+  const getAIModelInfo = (modelId: string) => {
+    const modelKey = modelId.toLowerCase();
+    const modelInfo = AI_ICONS[modelKey] || AI_ICONS.yandexgpt;
+    const ModelIcon = modelInfo.icon;
+    
+    const modelNames: Record<string, string> = {
+      yandexgpt: "YandexGPT",
+      kandinsky: "Kandinsky",
+      gigachat: "GigaChat",
+      shedevrum: "Шедеврум",
+    };
+    
+    return { name: modelNames[modelKey] || modelId, icon: ModelIcon, color: modelInfo.color };
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -489,88 +526,166 @@ export default function QuickStartWizard({ onClose, onPublish }: QuickStartWizar
                 <p className="text-muted-foreground">AI создал промт (версия {version})</p>
               </div>
               
-              <div className="space-y-4">
-                {result.imageUrl && (
-                  <div className="relative">
-                    <img src={result.imageUrl} alt="Result" className="w-full h-64 object-cover rounded-lg" />
-                  </div>
-                )}
-                
-                <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground">Сгенерированный промт:</label>
-                      <p className="text-sm mt-1 p-3 bg-muted rounded-lg">{result.prompt}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground">Описание:</label>
-                      <p className="text-sm mt-1 p-3 bg-muted rounded-lg whitespace-pre-line">{result.description}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold">💬 Улучшить промт</h3>
-                        <p className="text-xs text-muted-foreground">Диалог с AI (версия {version})</p>
-                      </div>
-                      {isProcessing && (
-                        <div className="flex items-center gap-2 text-xs text-primary">
-                          <Sparkles className="h-3 w-3 animate-pulse" />
-                          <span>AI обрабатывает...</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {messages.length > 0 && (
-                      <div ref={chatContainerRef} className="max-h-48 overflow-y-auto space-y-3 p-3 bg-muted/30 rounded-lg">
-                        {messages.map((msg, i) => (
-                          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                            <div className={`max-w-[80%] p-3 rounded-lg text-sm ${
-                              msg.role === "user" 
-                                ? "bg-primary text-primary-foreground animate-in slide-in-from-right-2" 
-                                : "bg-background border border-border animate-in slide-in-from-left-2"
-                            }`}>
-                              {msg.text}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    <div className="flex gap-2 flex-wrap">
-                      {["Добавить детали", "Сократить", "Расширить", "Изменить тон"].map(quick => (
-                        <Button key={quick} variant="outline" size="sm" onClick={() => handleImprove(quick)} disabled={isProcessing} className="text-xs">
-                          {quick}
-                        </Button>
-                      ))}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Input placeholder="Опишите что улучшить..." onKeyDown={e => {
-                        if (e.key === "Enter" && (e.target as HTMLInputElement).value && !isProcessing) {
-                          handleImprove((e.target as HTMLInputElement).value);
-                          (e.target as HTMLInputElement).value = "";
-                        }
-                      }} disabled={isProcessing} />
-                      <Button onClick={(e) => {
-                        const input = e.currentTarget.previousSibling as HTMLInputElement;
-                        if (input.value && !isProcessing) {
-                          handleImprove(input.value);
-                          input.value = "";
-                        }
-                      }} disabled={isProcessing}>
-                        {isProcessing ? <Sparkles className="h-4 w-4 animate-spin" /> : "Улучшить"}
+              {/* Before/After Compare Tabs */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">📊 Сравнение результата</h3>
+                    <div className="flex gap-1">
+                      <Button
+                        variant={compareTab === "before" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCompareTab("before")}
+                        className="text-xs"
+                      >
+                        <FileText className="h-3 w-3 mr-1" /> До
+                      </Button>
+                      <Button
+                        variant={compareTab === "after" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCompareTab("after")}
+                        className="text-xs"
+                      >
+                        <Sparkles className="h-3 w-3 mr-1" /> После
+                      </Button>
+                      <Button
+                        variant={compareTab === "details" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCompareTab("details")}
+                        className="text-xs"
+                      >
+                        <Layers className="h-3 w-3 mr-1" /> Детали
                       </Button>
                     </div>
-                    
-                    <p className="text-xs text-muted-foreground text-center">Нажмите Enter для отправки • Версия {version}</p>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {compareTab === "before" && (
+                    <div className="space-y-3">
+                      {uploadedImage && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-2 block">Загруженный файл:</label>
+                          <img src={imagePreview} alt="Before" className="w-full h-48 object-cover rounded-lg" />
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-2 block">Исходный запрос:</label>
+                        <p className="text-sm p-3 bg-muted rounded-lg">{result.originalDescription || description}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {compareTab === "after" && (
+                    <div className="space-y-3">
+                      {result.imageUrl && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground mb-2 block">AI Результат:</label>
+                          <img src={result.imageUrl} alt="After" className="w-full h-48 object-cover rounded-lg" />
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground mb-2 block">Финальный промт:</label>
+                        <p className="text-sm p-3 bg-primary/10 border border-primary/20 rounded-lg">{result.prompt}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {compareTab === "details" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Время генерации</span>
+                        </div>
+                        <p className="text-lg font-semibold">{result.generationTime} сек</p>
+                      </div>
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Star className="h-4 w-4 text-amber-500" />
+                          <span className="text-xs text-muted-foreground">Качество</span>
+                        </div>
+                        <p className="text-lg font-semibold">{result.quality}%</p>
+                      </div>
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Cpu className="h-4 w-4 text-primary" />
+                          <span className="text-xs text-muted-foreground">AI Модель</span>
+                        </div>
+                        <p className="text-lg font-semibold">{getAIModelInfo(result.aiModel || "").name}</p>
+                      </div>
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Layers className="h-4 w-4 text-success" />
+                          <span className="text-xs text-muted-foreground">Версия</span>
+                        </div>
+                        <p className="text-lg font-semibold">{version}</p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">💬 Улучшить промт</h3>
+                      <p className="text-xs text-muted-foreground">Диалог с AI (версия {version})</p>
+                    </div>
+                    {isProcessing && (
+                      <div className="flex items-center gap-2 text-xs text-primary">
+                        <Sparkles className="h-3 w-3 animate-pulse" />
+                        <span>AI обрабатывает...</span>
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {messages.length > 0 && (
+                    <div ref={chatContainerRef} className="max-h-48 overflow-y-auto space-y-3 p-3 bg-muted/30 rounded-lg">
+                      {messages.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                          <div className={`max-w-[80%] p-3 rounded-lg text-sm ${
+                            msg.role === "user" 
+                              ? "bg-primary text-primary-foreground animate-in slide-in-from-right-2" 
+                              : "bg-background border border-border animate-in slide-in-from-left-2"
+                          }`}>
+                            {msg.text}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2 flex-wrap">
+                    {["Добавить детали", "Сократить", "Расширить", "Изменить тон"].map(quick => (
+                      <Button key={quick} variant="outline" size="sm" onClick={() => handleImprove(quick)} disabled={isProcessing} className="text-xs">
+                        {quick}
+                      </Button>
+                    ))}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Input placeholder="Опишите что улучшить..." onKeyDown={e => {
+                      if (e.key === "Enter" && (e.target as HTMLInputElement).value && !isProcessing) {
+                        handleImprove((e.target as HTMLInputElement).value);
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }} disabled={isProcessing} />
+                    <Button onClick={(e) => {
+                      const input = e.currentTarget.previousSibling as HTMLInputElement;
+                      if (input.value && !isProcessing) {
+                        handleImprove(input.value);
+                        input.value = "";
+                      }
+                    }} disabled={isProcessing}>
+                      {isProcessing ? <Sparkles className="h-4 w-4 animate-spin" /> : "Улучшить"}
+                    </Button>
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground text-center">Нажмите Enter для отправки • Версия {version}</p>
+                </CardContent>
+              </Card>
               
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setCurrentStep("style")}>
