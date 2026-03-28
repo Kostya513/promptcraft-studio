@@ -46,10 +46,12 @@ app.get('/health', (req: Request, res: Response) => {
 import authRoutes from './routes/auth.js';
 import promptsRoutes from './routes/prompts.js';
 import usersRoutes from './routes/users.js';
+import aiRoutes from './routes/ai.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/prompts', promptsRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/ai', aiRoutes);
 
 // ============================================
 // 404 HANDLER

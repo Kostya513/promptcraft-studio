@@ -6,12 +6,13 @@ const STORAGE_KEYS = {
   PROMPTS: 'promptcraft_prompts',
   HISTORY: 'promptcraft_history',
   FAVORITES: 'promptcraft_favorites',
-  DRAFTS: 'promptcraft_drafts',
+  DRAFTS: 'promptcraft_drafts',  
   SETTINGS: 'promptcraft_settings',
+  PUBLISH_DRAFTS: 'promptcraft_publish_drafts',
 };
 
 // ─── Types ───
-export interface StoredPrompt {
+export interface StoredPrompt {  
   id: string;
   text: string;
   model: string;
@@ -21,7 +22,7 @@ export interface StoredPrompt {
   category?: string;
 }
 
-export interface HistoryItem {
+export interface HistoryItem {   
   id: string;
   input: string;
   output: string[];
@@ -29,18 +30,32 @@ export interface HistoryItem {
   model: string;
 }
 
+// ─── Publish Wizard Draft ───
+export interface PublishDraft {
+  id: string;
+  prompt: string;
+  title: string;
+  description: string;
+  price: number;
+  uploadedFiles: Array<{ id: string; name: string; type: "image" | "video"; size: number }>;
+  selectedMarketplaces: string[];
+  selectedSocials: string[];
+  currentStep: string;
+  lastSaved: number;
+}
+
 // ─── Prompts ───
 export function savePrompt(prompt: StoredPrompt): void {
   try {
     const prompts = getPrompts();
     const existingIndex = prompts.findIndex(p => p.id === prompt.id);
-    
-    if (existingIndex >= 0) {
+
+    if (existingIndex >= 0) {    
       prompts[existingIndex] = { ...prompt, createdAt: prompts[existingIndex].createdAt };
     } else {
-      prompts.unshift({ ...prompt, createdAt: Date.now() });
+      prompts.unshift({ ...prompt, createdAt: Date.now() });      
     }
-    
+
     localStorage.setItem(STORAGE_KEYS.PROMPTS, JSON.stringify(prompts));
   } catch (error) {
     console.error('Failed to save prompt:', error);
@@ -49,7 +64,7 @@ export function savePrompt(prompt: StoredPrompt): void {
 
 export function getPrompts(): StoredPrompt[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.PROMPTS);
+    const data = localStorage.getItem(STORAGE_KEYS.PROMPTS);      
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Failed to get prompts:', error);
@@ -57,7 +72,7 @@ export function getPrompts(): StoredPrompt[] {
   }
 }
 
-export function getPromptById(id: string): StoredPrompt | null {
+export function getPromptById(id: string): StoredPrompt | null {  
   try {
     const prompts = getPrompts();
     return prompts.find(p => p.id === id) || null;
@@ -81,22 +96,22 @@ export function updatePromptRating(id: string, rating: number): void {
   try {
     const prompts = getPrompts();
     const index = prompts.findIndex(p => p.id === id);
-    
+
     if (index >= 0) {
       prompts[index].rating = rating;
       localStorage.setItem(STORAGE_KEYS.PROMPTS, JSON.stringify(prompts));
     }
   } catch (error) {
-    console.error('Failed to update prompt rating:', error);
+    console.error('Failed to update prompt rating:', error);      
   }
 }
 
 // ─── Favorites ──
-export function addToFavorites(prompt: StoredPrompt): void {
+export function addToFavorites(prompt: StoredPrompt): void {      
   try {
     const favorites = getFavorites();
     if (!favorites.find(p => p.id === prompt.id)) {
-      favorites.unshift({ ...prompt, createdAt: Date.now() });
+      favorites.unshift({ ...prompt, createdAt: Date.now() });    
       localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(favorites));
     }
   } catch (error) {
@@ -106,7 +121,7 @@ export function addToFavorites(prompt: StoredPrompt): void {
 
 export function getFavorites(): StoredPrompt[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.FAVORITES);
+    const data = localStorage.getItem(STORAGE_KEYS.FAVORITES);    
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Failed to get favorites:', error);
@@ -120,22 +135,22 @@ export function removeFromFavorites(id: string): void {
     const filtered = favorites.filter(p => p.id !== id);
     localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(filtered));
   } catch (error) {
-    console.error('Failed to remove from favorites:', error);
+    console.error('Failed to remove from favorites:', error);     
   }
 }
 
 // ─── Drafts ───
-export function saveToDrafts(prompt: StoredPrompt): void {
+export function saveToDrafts(prompt: StoredPrompt): void {        
   try {
-    const drafts = getDrafts();
+    const drafts = getDrafts();  
     const existingIndex = drafts.findIndex(p => p.id === prompt.id);
-    
-    if (existingIndex >= 0) {
+
+    if (existingIndex >= 0) {    
       drafts[existingIndex] = { ...prompt, createdAt: drafts[existingIndex].createdAt };
     } else {
-      drafts.unshift({ ...prompt, createdAt: Date.now() });
+      drafts.unshift({ ...prompt, createdAt: Date.now() });       
     }
-    
+
     localStorage.setItem(STORAGE_KEYS.DRAFTS, JSON.stringify(drafts));
   } catch (error) {
     console.error('Failed to save to drafts:', error);
@@ -144,7 +159,7 @@ export function saveToDrafts(prompt: StoredPrompt): void {
 
 export function getDrafts(): StoredPrompt[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.DRAFTS);
+    const data = localStorage.getItem(STORAGE_KEYS.DRAFTS);       
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Failed to get drafts:', error);
@@ -154,7 +169,7 @@ export function getDrafts(): StoredPrompt[] {
 
 export function deleteDraft(id: string): void {
   try {
-    const drafts = getDrafts();
+    const drafts = getDrafts();  
     const filtered = drafts.filter(p => p.id !== id);
     localStorage.setItem(STORAGE_KEYS.DRAFTS, JSON.stringify(filtered));
   } catch (error) {
@@ -167,15 +182,15 @@ export function addToHistory(input: string, output: string[], model: string): vo
   try {
     const history = getHistory();
     const newItem: HistoryItem = {
-      id: Date.now().toString(),
+      id: Date.now().toString(), 
       input,
       output,
-      timestamp: Date.now(),
+      timestamp: Date.now(),     
       model,
     };
-    
-    history.unshift(newItem);
-    
+
+    history.unshift(newItem);    
+
     // Храним только последние 50 записей
     const trimmed = history.slice(0, 50);
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(trimmed));
@@ -186,7 +201,7 @@ export function addToHistory(input: string, output: string[], model: string): vo
 
 export function getHistory(): HistoryItem[] {
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.HISTORY);
+    const data = localStorage.getItem(STORAGE_KEYS.HISTORY);      
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Failed to get history:', error);
@@ -206,7 +221,7 @@ export function clearHistory(): void {
 export function saveSettings(settings: Record<string, unknown>): void {
   try {
     const existing = getSettings();
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify({ ...existing, ...settings }));
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify({ ...existing, ...settings }));     
   } catch (error) {
     console.error('Failed to save settings:', error);
   }
@@ -214,11 +229,59 @@ export function saveSettings(settings: Record<string, unknown>): void {
 
 export function getSettings(): Record<string, unknown> {
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);     
     return data ? JSON.parse(data) : {};
   } catch (error) {
     console.error('Failed to get settings:', error);
     return {};
+  }
+}
+
+// ─── Publish Wizard Drafts ───
+export function savePublishDraft(draft: PublishDraft): void {
+  try {
+    const drafts = getPublishDrafts();
+    const existingIndex = drafts.findIndex(d => d.id === draft.id);
+
+    if (existingIndex >= 0) {
+      drafts[existingIndex] = { ...draft, lastSaved: Date.now() };
+    } else {
+      drafts.unshift({ ...draft, lastSaved: Date.now() });
+    }
+
+    localStorage.setItem(STORAGE_KEYS.PUBLISH_DRAFTS, JSON.stringify(drafts));
+  } catch (error) {
+    console.error('Failed to save publish draft:', error);
+  }
+}
+
+export function getPublishDrafts(): PublishDraft[] {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.PUBLISH_DRAFTS);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Failed to get publish drafts:', error);
+    return [];
+  }
+}
+
+export function getPublishDraftById(id: string): PublishDraft | null {
+  try {
+    const drafts = getPublishDrafts();
+    return drafts.find(d => d.id === id) || null;
+  } catch (error) {
+    console.error('Failed to get publish draft by id:', error);
+    return null;
+  }
+}
+
+export function deletePublishDraft(id: string): void {
+  try {
+    const drafts = getPublishDrafts();
+    const filtered = drafts.filter(d => d.id !== id);
+    localStorage.setItem(STORAGE_KEYS.PUBLISH_DRAFTS, JSON.stringify(filtered));
+  } catch (error) {
+    console.error('Failed to delete publish draft:', error);
   }
 }
 
@@ -231,7 +294,7 @@ export function clearAllStorage(): void {
   }
 }
 
-export function getStorageStats(): Record<string, number> {
+export function getStorageStats(): Record<string, number> {       
   try {
     return {
       prompts: getPrompts().length,
