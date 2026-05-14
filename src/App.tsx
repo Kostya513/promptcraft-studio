@@ -7,6 +7,7 @@ import { UserProvider } from "./contexts/UserContext";
 import { AdminProvider } from "./contexts/AdminContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { ExpertModeProvider } from "./contexts/ExpertModeContext";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
 import AdminLayout from "./components/admin/AdminLayout";
 import LoginPage from "./pages/LoginPage";
@@ -68,28 +69,31 @@ const App = () => (
                   <Route path="/publish" element={<PublishPromptPage />} />
                   <Route element={<AppLayout />}>
                     <Route path="/market" element={<PromptMarket />} />
+                    <Route path="/search" element={<SearchCatalog />} />
                     <Route path="/prompt/:id" element={<PromptDetail />} />
                     <Route path="/assistant" element={<AssistantPage />} />
-                    <Route path="/studio" element={<StudioPage />} />
-                    <Route path="/accounts" element={<AccountManager />} />
-                    <Route path="/community" element={<CommunityPage />} />
-                    <Route path="/favorites" element={<FavoritesPage />} />
-                    <Route path="/support" element={<SupportPage />} />
-                    <Route path="/support/about" element={<AboutService />} />
-                    <Route path="/about" element={<AboutPage />} />
-                    <Route path="/support/about/offer" element={<OfferPage />} />
-                    <Route path="/support/about/privacy" element={<PrivacyPolicy />} />
-                    <Route path="/support/about/terms" element={<TermsPage />} />
-                    <Route path="/support/about/contacts" element={<ContactsPage />} />
+                    
+                    {/* Protected routes */}
+                    <Route path="/studio" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
+                    <Route path="/accounts" element={<ProtectedRoute><AccountManager /></ProtectedRoute>} />
+                    <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
+                    <Route path="/favorites" element={<ProtectedRoute><FavoritesPage /></ProtectedRoute>} />
+                    <Route path="/support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
+                    <Route path="/support/about" element={<ProtectedRoute><AboutService /></ProtectedRoute>} />
+                    <Route path="/about" element={<ProtectedRoute><AboutPage /></ProtectedRoute>} />
+                    <Route path="/support/about/offer" element={<ProtectedRoute><OfferPage /></ProtectedRoute>} />
+                    <Route path="/support/about/privacy" element={<ProtectedRoute><PrivacyPolicy /></ProtectedRoute>} />
+                    <Route path="/support/about/terms" element={<ProtectedRoute><TermsPage /></ProtectedRoute>} />
+                    <Route path="/support/about/contacts" element={<ProtectedRoute><ContactsPage /></ProtectedRoute>} />
 
-                    <Route path="/blog" element={<Blog />} />
-                    <Route path="/blog/create" element={<CreatePost />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/notifications" element={<NotificationsPage />} />
-                    <Route path="/referrals" element={<ReferralPage />} />
-                    <Route path="/team" element={<TeamAccountsPage />} />
-                    <Route path="/custom-orders" element={<CustomOrdersPage />} />
+                    <Route path="/blog" element={<ProtectedRoute><Blog /></ProtectedRoute>} />
+                    <Route path="/blog/create" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+                    <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+                    <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                    <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+                    <Route path="/referrals" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
+                    <Route path="/team" element={<ProtectedRoute><TeamAccountsPage /></ProtectedRoute>} />
+                    <Route path="/custom-orders" element={<ProtectedRoute><CustomOrdersPage /></ProtectedRoute>} />
                   </Route>
                   <Route path="/admin" element={<AdminLogin />} />
                   <Route element={<AdminLayout />}>

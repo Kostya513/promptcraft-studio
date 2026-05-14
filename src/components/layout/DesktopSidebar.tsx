@@ -33,11 +33,12 @@ export function DesktopSidebar({ collapsed, currentPath, onToggle }: DesktopSide
       }`}
     >
       {/* Премиальная панель-колонна */}
+      {/* ✅ ИЗМЕНЕНО: h-[calc(100vh-16px)] выравнивает нижний отступ по верхнему (mt-1) */}
       <div 
-        className="flex flex-col h-[calc(100vh-80px)] mx-3 mt-[64px] mb-[64px] rounded-[12px] overflow-hidden backdrop-blur-xl bg-gradient-to-b from-white/80 via-white/60 to-white/70 dark:from-slate-900/80 dark:via-slate-900/60 dark:to-slate-900/70 border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-primary/5"
+        className="flex flex-col h-[calc(100vh-65px)] mx-3 mt-1 mb-1 rounded-[12px] overflow-hidden backdrop-blur-xl bg-gradient-to-b from-white/80 via-white/60 to-white/70 dark:from-slate-900/80 dark:via-slate-900/60 dark:to-slate-900/70 border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-primary/5"
       >
-        {/* Навигация - БЕЗ ПРОКРУТКИ */}
-        <nav className="flex-1 py-2 px-2 space-y-0.5">
+        {/* Навигация: фиксирована сверху */}
+        <nav className="flex-1 py-0.5 px-2 space-y-0">
           {navItems.map((item, index) => {
             const isActive = !item.isToggle && currentPath && (currentPath === item.path || currentPath.startsWith(item.path + "/"));
             
@@ -47,7 +48,7 @@ export function DesktopSidebar({ collapsed, currentPath, onToggle }: DesktopSide
                 <button
                   key={item.path + index}
                   onClick={onToggle}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-sm font-medium transition-all duration-300 group cursor-pointer bg-primary/5 hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1 rounded-[8px] text-sm font-medium transition-all duration-300 group cursor-pointer bg-primary/5 hover:bg-primary/10 text-muted-foreground hover:text-primary"
                 >
                   <div className="flex items-center justify-center w-8 h-8 rounded-[6px] flex-shrink-0">
                     {collapsed ? (
@@ -68,7 +69,7 @@ export function DesktopSidebar({ collapsed, currentPath, onToggle }: DesktopSide
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] text-sm font-medium transition-all duration-300 group relative ${
+                className={`flex items-center gap-2.5 px-2.5 py-1 rounded-[8px] text-sm font-medium transition-all duration-300 group relative ${
                   isActive
                     ? "bg-gradient-to-r from-primary/15 to-primary/8 text-primary"
                     : "text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-slate-800/50"
@@ -97,8 +98,8 @@ export function DesktopSidebar({ collapsed, currentPath, onToggle }: DesktopSide
           })}
         </nav>
 
-        {/* Pro блок внизу */}
-        <div className="p-2 border-t border-border/40 flex-shrink-0">
+        {/* ✅ Pro блок: теперь стоит ровно по нижней границе */}
+        <div className="p-1.5 mt-0 flex-shrink-0">
           <Link
             to="/settings?tab=Подписка"
             className={`flex items-center gap-2.5 p-2 rounded-[8px] bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white cursor-pointer hover:opacity-90 transition-all duration-300 ${

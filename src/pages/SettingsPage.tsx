@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import {
   Sun, Moon, Monitor, Trash2, AlertTriangle, Eye, EyeOff, Shield,
   Smartphone, Globe, LogOut, Link2, Link2Off, Upload, CreditCard,
   Bell, BellOff, Clock, Download, FileText, Mail, MessageSquare,
   CheckCircle, X, ChevronDown, ExternalLink, Receipt, Zap, Crown,
-  QrCode, Copy, Phone
+  QrCode, Copy, Phone, Loader2
 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { toast } from "@/hooks/use-toast";
@@ -66,10 +66,107 @@ const promoCodes: Record<string, { discount: number; expired?: boolean }> = {
   "EXPIRED2025": { discount: 20, expired: true },
 };
 
+// ✅ OPTIMIZATION: Утилита для сжатия и конвертации изображений
+const AvatarOptimizer = {
+  // Конвертация в WebP + сжатие
+  compressImage: async (file: File, maxWidth: number = 400, quality: number = 0.8): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        
+        // Вычисляем размеры с сохранением пропорций
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        
+        // Создаём canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('Canvas не поддерживается'));
+          return;
+        }
+        
+        // Рисуем изображение
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Конвертируем в WebP
+        canvas.toBlob(
+          (blob) => {
+            canvas.remove();
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Ошибка конвертации'));
+            }
+          },
+          'image/webp',
+          quality
+        );
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Ошибка загрузки изображения'));
+      };
+      
+      img.src = url;
+    });
+  },
+
+  // Генерация thumbnail (50x50)
+  generateThumbnail: async (file: File): Promise<Blob> => {
+    return AvatarOptimizer.compressImage(file, 50, 0.7);
+  },
+
+  // Кэш аватаров в localStorage
+  cache: {
+    set: (url: string, blob: Blob): void => {
+      try {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          localStorage.setItem(`avatar_cache_${url}`, JSON.stringify({
+            data: base64,
+            timestamp: Date.now(),
+            expiry: 7 * 24 * 60 * 60 * 1000 // 7 дней
+          }));
+        };
+        reader.readAsDataURL(blob);
+      } catch (e) {
+        console.warn('Avatar cache save failed:', e);
+      }
+    },
+    get: (url: string): string | null => {
+      try {
+        const item = localStorage.getItem(`avatar_cache_${url}`);
+        if (!item) return null;
+        const parsed = JSON.parse(item);
+        if (Date.now() - parsed.timestamp > parsed.expiry) {
+          localStorage.removeItem(`avatar_cache_${url}`);
+          return null;
+        }
+        return parsed.data;
+      } catch {
+        return null;
+      }
+    }
+  }
+};
+
 export default function SettingsPage() {
   const { user, setUser } = useUser();
   const [activeTab, setActiveTab] = useState("Профиль");
   const location = useLocation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [theme, setTheme] = useState(() => {
     const stored = localStorage.getItem("pf-theme");
@@ -105,6 +202,12 @@ export default function SettingsPage() {
   const [profileLang, setProfileLang] = useState(user.language || "Русский");
   const [profileTz, setProfileTz] = useState(user.timezone || "Europe/Moscow");
   const [socialLinks, setSocialLinks] = useState({ vk: "", telegram: "", github: "" });
+
+  // Avatar upload state
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Password change
   const [currentPw, setCurrentPw] = useState("");
@@ -184,6 +287,15 @@ export default function SettingsPage() {
     }
   }, [theme]);
 
+  // Cleanup avatar preview URL
+  useEffect(() => {
+    return () => {
+      if (avatarPreview && avatarPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
+
   const handleServiceToggle = (id: string) => {
     setServices(prev => prev.map(s => s.id === id ? { ...s, connected: !s.connected } : s));
   };
@@ -212,7 +324,232 @@ export default function SettingsPage() {
     showSaveToast("Профиль сохранён");
   };
 
-  const handleAvatarUpload = () => toast({ title: "Загрузка аватара", description: "Функция будет доступна после подключения хранилища" });
+  // === OPTIMIZED AVATAR UPLOAD FUNCTIONS ===
+  
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Неверный формат", description: "Выберите изображение (JPG, PNG, GIF, WebP)", variant: "destructive" });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Файл слишком большой", description: "Максимальный размер: 5 МБ", variant: "destructive" });
+      return;
+    }
+
+    try {
+      // ✅ OPTIMIZATION: Сжатие и конвертация в WebP
+      setIsUploading(true);
+      setUploadProgress(30);
+      
+      const compressedBlob = await AvatarOptimizer.compressImage(file, 400, 0.85);
+      setUploadProgress(70);
+      
+      // Создаём preview из сжатого Blob
+      const previewUrl = URL.createObjectURL(compressedBlob);
+      setAvatarPreview(previewUrl);
+      
+      // Создаём новый File из Blob для отправки
+      const optimizedFile = new File([compressedBlob], file.name.replace(/\.[^.]+$/, '.webp'), {
+        type: 'image/webp',
+        lastModified: Date.now()
+      });
+      
+      setAvatarFile(optimizedFile);
+      setUploadProgress(100);
+      
+      toast({ title: "Изображение оптимизировано", description: `Размер уменьшен до ${(compressedBlob.size / 1024).toFixed(1)} КБ` });
+      
+    } catch (error: any) {
+      console.error('Avatar optimization error:', error);
+      // Fallback: используем оригинальный файл
+      setAvatarFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarPreview(previewUrl);
+      toast({ title: "Предупреждение", description: "Не удалось оптимизировать изображение, используется оригинал", variant: "default" });
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!avatarFile) {
+      toast({ title: "Выберите файл", description: "Нажмите на аватар чтобы выбрать изображение", variant: "destructive" });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(10);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Не авторизован');
+      }
+
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+      formData.append('format', 'webp'); // Указываем формат
+
+      console.log('📤 Загрузка оптимизированного аватара...');
+      setUploadProgress(40);
+
+      const response = await fetch('http://localhost:3000/api/users/avatar', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Ошибка загрузки');
+      }
+
+      setUploadProgress(80);
+      const data = await response.json();
+      
+      console.log('✅ Аватар загружен:', data.avatar_url);
+      
+      // Создаём полный URL
+      const fullAvatarUrl = data.avatar_url.startsWith('http') 
+        ? data.avatar_url 
+        : `http://localhost:3000${data.avatar_url}`;
+      
+      // ✅ OPTIMIZATION: Кэшируем аватар
+      if (avatarPreview) {
+        fetch(avatarPreview)
+          .then(res => res.blob())
+          .then(blob => AvatarOptimizer.cache.set(fullAvatarUrl, blob))
+          .catch(() => {});
+      }
+      
+      // Обновляем UserContext
+      const updatedUser = { 
+        ...user, 
+        avatar: fullAvatarUrl,
+        avatar_url: fullAvatarUrl,
+        avatar_format: 'webp'
+      };
+      setUser(updatedUser);
+      
+      // Обновляем localStorage (promptcraft_user)
+      const storedUser = localStorage.getItem('promptcraft_user');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        parsed.avatar = fullAvatarUrl;
+        parsed.avatar_url = fullAvatarUrl;
+        parsed.avatar_format = 'webp';
+        localStorage.setItem('promptcraft_user', JSON.stringify(parsed));
+      }
+      
+      // Обновляем localStorage (promptcraft_context)
+      const contextStorage = localStorage.getItem('promptcraft_context');
+      if (contextStorage) {
+        const parsed = JSON.parse(contextStorage);
+        if (parsed.user) {
+          parsed.user.avatar = fullAvatarUrl;
+          parsed.user.avatar_url = fullAvatarUrl;
+          parsed.user.avatar_format = 'webp';
+          localStorage.setItem('promptcraft_context', JSON.stringify(parsed));
+        }
+      }
+
+      toast({ title: "Аватар обновлён", description: "Новое изображение сохранено в формате WebP" });
+      
+      // Очищаем состояние
+      setAvatarFile(null);
+      if (avatarPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+      setAvatarPreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      setUploadProgress(100);
+
+    } catch (error: any) {
+      console.error('❌ Avatar upload error:', error);
+      toast({ 
+        title: "Ошибка загрузки", 
+        description: error.message || "Не удалось загрузить аватар", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setUploadProgress(0), 500);
+    }
+  };
+
+  const handleAvatarCancel = () => {
+    setAvatarFile(null);
+    if (avatarPreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+    setAvatarPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setUploadProgress(0);
+  };
+
+  // ✅ OPTIMIZATION: Компонент для отображения аватара с кэшем и lazy loading
+  const AvatarImage: React.FC<{ src: string; alt: string; size?: 'small' | 'medium' | 'large'; className?: string }> = ({ src, alt, size = 'medium', className = '' }) => {
+    const [cachedSrc, setCachedSrc] = useState<string | null>(null);
+    const [loaded, setLoaded] = useState(false);
+
+    const sizeClasses = {
+      small: 'h-8 w-8',
+      medium: 'h-16 w-16',
+      large: 'h-24 w-24'
+    };
+
+    useEffect(() => {
+      // Пытаемся получить из кэша
+      const cached = AvatarOptimizer.cache.get(src);
+      if (cached) {
+        setCachedSrc(cached);
+        setLoaded(true);
+      }
+    }, [src]);
+
+    const handleLoad = () => {
+      setLoaded(true);
+      // Кэшируем после успешной загрузки
+      if (!cachedSrc) {
+        fetch(src)
+          .then(res => res.blob())
+          .then(blob => AvatarOptimizer.cache.set(src, blob))
+          .catch(() => {});
+      }
+    };
+
+    return (
+      <div className={`relative ${sizeClasses[size]} ${className}`}>
+        {!loaded && (
+            <div className="absolute inset-0 rounded-full bg-muted animate-pulse" />
+          )}
+          <img
+            src={cachedSrc || src}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            onLoad={handleLoad}
+            className={`h-full w-full rounded-full object-cover transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          />
+        </div>
+      );
+    };
 
   const handleExportData = () => {
     const exportData = {
@@ -352,16 +689,54 @@ export default function SettingsPage() {
           <div className="bg-card rounded-xl border border-border p-5">
             <div className="flex items-center gap-4 mb-5">
               <div className="relative">
-                <div className="h-16 w-16 rounded-full gradient-primary flex items-center justify-center text-primary-foreground text-2xl font-bold overflow-hidden">
-                  {user.avatar ? <img src={user.avatar} alt="avatar" className="h-full w-full object-cover" /> : (profileName ? profileName[0].toUpperCase() : user.email[0].toUpperCase())}
+                <div 
+                  className="h-16 w-16 rounded-full gradient-primary flex items-center justify-center text-primary-foreground text-2xl font-bold overflow-hidden cursor-pointer" 
+                  onClick={handleAvatarClick}
+                >
+                  {avatarPreview ? (
+                    <img 
+                      src={avatarPreview} 
+                      alt="preview" 
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : user.avatar ? (
+                    // ✅ OPTIMIZATION: Используем AvatarImage с кэшем
+                    <AvatarImage src={user.avatar} alt="avatar" />
+                  ) : (
+                    profileName ? profileName[0].toUpperCase() : user.email[0].toUpperCase()
+                  )}
                 </div>
-                <button onClick={handleAvatarUpload} className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground hover:opacity-90 transition-opacity">
-                  <Upload className="h-3 w-3" />
+                <button 
+                  onClick={handleAvatarClick} 
+                  disabled={isUploading}
+                  className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                 </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarFileSelect}
+                  className="hidden"
+                />
               </div>
               <div>
                 <h2 className="font-semibold">{profileName || "Пользователь"}</h2>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
+                {avatarFile && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{avatarFile.name}</span>
+                    {uploadProgress > 0 && uploadProgress < 100 && (
+                      <span className="text-xs text-primary">{uploadProgress}%</span>
+                    )}
+                    <button onClick={handleAvatarCancel} className="text-xs text-destructive hover:underline">Отмена</button>
+                    <button onClick={handleAvatarUpload} disabled={isUploading} className="text-xs text-primary hover:underline disabled:opacity-50">
+                      {isUploading ? (uploadProgress === 100 ? "Сохранение..." : "Оптимизация...") : "Сохранить"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             <div className="grid sm:grid-cols-2 gap-3">

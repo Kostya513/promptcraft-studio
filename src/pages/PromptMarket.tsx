@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Search, SlidersHorizontal, ShoppingCart } from "lucide-react";
 import { FilterModal } from "@/components/prompt-market/FilterModal";
 import { MarketCard, type MarketCardData } from "@/components/prompt-market/MarketCard";
@@ -15,42 +15,164 @@ const tabLabels: { key: SortTab; label: string }[] = [
   { key: "place", label: "Разместить" },
 ];
 
-// data will be fetched from the backend; no mock cards by default
-const generateMockCards = (page: number): MarketCardData[] => [];
+// ✅ OPTIMIZATION: Ключи для кэширования
+const CACHE_KEYS = {
+  CARDS: "promptcraft_market_cards",
+  CARDS_TIMESTAMP: "promptcraft_market_cards_ts",
+  CARDS_EXPIRY_MS: "promptcraft_cache_expiry",
+  DEFAULT_EXPIRY: 300000, // 5 минут
+};
+
+// ✅ OPTIMIZATION: Утилита для работы с кэшем (строго типизирована)
+const CacheUtil = {
+  get<T>(key: string): T | null {
+    try {
+      const item = localStorage.getItem(key);
+      if (!item) return null;
+      const parsed = JSON.parse(item);
+      
+      if (key.includes('_ts')) {
+        const now = Date.now();
+        const storedExpiry = localStorage.getItem(CACHE_KEYS.CARDS_EXPIRY_MS);
+        const expiry = storedExpiry ? Number(storedExpiry) : CACHE_KEYS.DEFAULT_EXPIRY;
+        
+        if (typeof parsed === 'number' && now - parsed > expiry) {
+          CacheUtil.clear();
+          return null;
+        }
+      }
+      return parsed as T;
+    } catch {
+      return null;
+    }
+  },
+  
+  set<T>(key: string, value: T): void {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.warn("Cache save failed:", e);
+    }
+  },
+  
+  clear(): void {
+    try {
+      localStorage.removeItem(CACHE_KEYS.CARDS);
+      localStorage.removeItem(CACHE_KEYS.CARDS_TIMESTAMP);
+    } catch (e) {
+      console.warn("Cache clear failed:", e);
+    }
+  },
+  
+  isFresh(): boolean {
+    const ts = CacheUtil.get<number>(CACHE_KEYS.CARDS_TIMESTAMP);
+    if (!ts) return false;
+    const storedExpiry = localStorage.getItem(CACHE_KEYS.CARDS_EXPIRY_MS);
+    const expiry = storedExpiry ? Number(storedExpiry) : CACHE_KEYS.DEFAULT_EXPIRY;
+    return Date.now() - ts < expiry;
+  }
+};
+
+const generateMockCards = (_page: number): MarketCardData[] => [];
 
 export default function PromptMarket() {
-  const [query, setQuery] = useState("");
+  // ✅ Явная типизация всех состояний для строгого режима TS
+  const [query, setQuery] = useState<string>("");
   const [activeTab, setActiveTab] = useState<SortTab>("new");
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState<boolean>(false);
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
   const [quickViewItem, setQuickViewItem] = useState<MarketCardData | null>(null);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [cards, setCards] = useState<MarketCardData[]>([]);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [cartOpen, setCartOpen] = useState<boolean>(false);
+  
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      const cached = localStorage.getItem("promptcraft_cart");
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  
+  const [cards, setCards] = useState<MarketCardData[]>(() => {
+    const cached = CacheUtil.get<MarketCardData[]>(CACHE_KEYS.CARDS);
+    return cached || [];
+  });
+  
+  const [page, setPage] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [hasMore, setHasMore] = useState<boolean>(true);
   const loaderRef = useRef<HTMLDivElement>(null);
 
-  // Infinite scroll
+  useEffect(() => {
+    try {
+      localStorage.setItem("promptcraft_cart", JSON.stringify(cartItems));
+    } catch (e) {
+      console.warn("Cart save failed:", e);
+    }
+  }, [cartItems]);
+
+  useEffect(() => {
+    if (cards.length > 0) {
+      CacheUtil.set(CACHE_KEYS.CARDS, cards);
+      CacheUtil.set(CACHE_KEYS.CARDS_TIMESTAMP, Date.now());
+    }
+  }, [cards]);
+
+  const fetchCards = useCallback(async (pageNum: number, append: boolean = false) => {
+    if (loading || !hasMore) return;
+    
+    setLoading(true);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const newCards: MarketCardData[] = generateMockCards(pageNum);
+      
+      if (newCards.length === 0) {
+        setHasMore(false);
+      }
+      
+      setCards(prev => append ? [...prev, ...newCards] : newCards);
+      setPage(pageNum);
+      
+    } catch (error) {
+      console.error("Failed to fetch cards:", error);
+      const cached = CacheUtil.get<MarketCardData[]>(CACHE_KEYS.CARDS);
+      if (cached && !append) {
+        setCards(cached);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, hasMore, activeTab]);
+
+  useEffect(() => {
+    if (cards.length === 0 && !CacheUtil.isFresh()) {
+      fetchCards(1, false);
+    }
+  }, []);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !loading) {
-          setLoading(true);
-          // Replace with backend fetch when ready
-          setTimeout(() => {
-            const nextPage = page + 1;
-            // no mock data added
-            setPage(nextPage);
-            setLoading(false);
-          }, 800);
+        if (entries[0].isIntersecting && !loading && hasMore) {
+          const nextPage: number = page + 1;
+          fetchCards(nextPage, true);
         }
       },
       { threshold: 0.1 }
     );
     if (loaderRef.current) observer.observe(loaderRef.current);
     return () => observer.disconnect();
-  }, [page, loading]);
+  }, [page, loading, hasMore, fetchCards]);
+
+  useEffect(() => {
+    if (activeTab !== "place") {
+      if (CacheUtil.isFresh() && cards.length > 0) {
+        return;
+      }
+      fetchCards(1, false);
+    }
+  }, [activeTab]);
 
   const handleLike = (id: string) => {
     console.log("Like:", id);
@@ -60,7 +182,14 @@ export default function PromptMarket() {
     const card = cards.find((c) => c.id === id);
     if (!card || card.price === null) return;
     if (cartItems.find((i) => i.id === id)) return;
-    setCartItems((prev) => [...prev, { id: card.id, title: card.title, author: card.author, price: card.price!, image: card.image }]);
+    
+    setCartItems((prev) => [...prev, { 
+      id: card.id, 
+      title: card.title, 
+      author: card.author, 
+      price: card.price!, 
+      image: card.image 
+    }]);
   };
 
   const handleQuickView = (id: string) => {
@@ -70,30 +199,38 @@ export default function PromptMarket() {
 
   const totalFilterCount = Object.values(selectedFilters).reduce((sum, arr) => sum + arr.length, 0);
 
-  // Filter cards by query
-  const filteredCards = cards.filter((c) => {
-    if (!query.trim()) return true;
+  const filteredCards = useMemo(() => {
+    if (!query.trim()) return cards;
     const q = query.toLowerCase();
-    return c.title.toLowerCase().includes(q) || c.tags.some((t) => t.toLowerCase().includes(q)) || c.author.toLowerCase().includes(q);
-  });
+    return cards.filter((c) => {
+      return c.title.toLowerCase().includes(q) || 
+             c.tags.some((t) => t.toLowerCase().includes(q)) || 
+             c.author.toLowerCase().includes(q);
+    });
+  }, [cards, query]);
 
-  // Sort
-  const sortedCards = [...filteredCards].sort((a, b) => {
-    if (activeTab === "new") return b.createdAt.localeCompare(a.createdAt);
-    if (activeTab === "popular") return b.views - a.views;
-    if (activeTab === "rating") return b.rating - a.rating;
-    return 0;
-  });
+  const sortedCards = useMemo(() => {
+    return [...filteredCards].sort((a, b) => {
+      if (activeTab === "new") return b.createdAt.localeCompare(a.createdAt);
+      if (activeTab === "popular") return b.views - a.views;
+      if (activeTab === "rating") return b.rating - a.rating;
+      return 0;
+    });
+  }, [filteredCards, activeTab]);
 
-  // If "place" tab is active, we show publish page (handled by routing)
   if (activeTab === "place") {
-    // We'll redirect to publish page via navigate, but for tab UX just show inline message
+    window.location.href = "/publish";
+    return null;
   }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-2">Prompt Market</h1>
+      {/* ✅ Заголовок без кнопки "Обновить" */}
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold">Prompt Market</h1>
+      </div>
       <p className="text-sm text-muted-foreground mb-6">Маркетплейс промтов и AI-инструментов</p>
+      
       {/* Search bar */}
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
@@ -163,9 +300,14 @@ export default function PromptMarket() {
             onAddToCart={handleAddToCart}
             onQuickView={handleQuickView}
           />
-        )) : (
-          <p className="text-center text-muted-foreground py-8">Пока нет промтов. Станьте первым автором!</p>
-        )}
+        )) : !loading ? (
+          <div className="col-span-full text-center py-12">
+            <p className="text-muted-foreground mb-4">Пока нет промтов. Станьте первым автором!</p>
+            <a href="/publish" className="px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium">
+              Опубликовать промт
+            </a>
+          </div>
+        ) : null}
       </div>
 
       {/* Infinite scroll loader */}
@@ -175,6 +317,9 @@ export default function PromptMarket() {
             <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             Загрузка...
           </div>
+        )}
+        {!hasMore && cards.length > 0 && (
+          <p className="text-xs text-muted-foreground">Все промты загружены</p>
         )}
       </div>
 

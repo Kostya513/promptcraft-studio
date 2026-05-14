@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Wallet, TrendingUp, Eye, FileText, ArrowDownToLine,
   Plus, Settings, ShoppingCart, Star, MessageSquare
@@ -28,42 +29,67 @@ const activityColors = {
 
 export function StudioDashboard() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const navigate = useNavigate();
 
   const balance = 0;
   const dailySales = 0;
   const totalViews = 0;
   const promptsCount = 0;
 
+  // ✅ Функция перехода на вкладку
+  const goToTab = (tab: string) => {
+    navigate(`/studio?tab=${tab}`);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Metrics */}
+      {/* Metrics — ТЕПЕРЬ КЛИКАБЕЛЬНЫЕ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card rounded-xl border border-border p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+        {/* Баланс → Финансы */}
+        <div 
+          onClick={() => goToTab("finances")}
+          className="bg-card rounded-xl border border-border p-4 cursor-pointer hover:border-primary/50 hover:shadow-card-hover transition-all group"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1 group-hover:text-primary transition-colors">
             <Wallet className="h-4 w-4" /> Баланс
           </div>
           <p className="text-2xl font-bold">{balance.toLocaleString("ru-RU")} ₽</p>
           <button
-            onClick={() => setShowWithdrawModal(true)}
+            onClick={(e) => { e.stopPropagation(); setShowWithdrawModal(true); }}
             className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
           >
             <ArrowDownToLine className="h-3 w-3" /> Вывести
           </button>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+
+        {/* Продажи → Аналитика */}
+        <div 
+          onClick={() => goToTab("analytics")}
+          className="bg-card rounded-xl border border-border p-4 cursor-pointer hover:border-primary/50 hover:shadow-card-hover transition-all group"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1 group-hover:text-primary transition-colors">
             <TrendingUp className="h-4 w-4" /> Продажи сегодня
           </div>
           <p className="text-2xl font-bold">{dailySales} ₽</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+
+        {/* Просмотры → Аналитика */}
+        <div 
+          onClick={() => goToTab("analytics")}
+          className="bg-card rounded-xl border border-border p-4 cursor-pointer hover:border-primary/50 hover:shadow-card-hover transition-all group"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1 group-hover:text-primary transition-colors">
             <Eye className="h-4 w-4" /> Просмотры
           </div>
           <p className="text-2xl font-bold">{totalViews.toLocaleString("ru-RU")}</p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+
+        {/* Промптов → Мои промты */}
+        <div 
+          onClick={() => goToTab("prompts")}
+          className="bg-card rounded-xl border border-border p-4 cursor-pointer hover:border-primary/50 hover:shadow-card-hover transition-all group"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1 group-hover:text-primary transition-colors">
             <FileText className="h-4 w-4" /> Промптов
           </div>
           <p className="text-2xl font-bold">{promptsCount}</p>

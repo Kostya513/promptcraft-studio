@@ -77,6 +77,19 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return result;
 }
 
+export async function socialLogin(provider: string, email?: string): Promise<AuthResponse> {
+  const result = await request('/auth/social-login', {
+    method: 'POST',
+    body: JSON.stringify({ provider, email }),
+  });
+
+  if (result.token) {
+    localStorage.setItem('auth_token', result.token);
+  }
+
+  return result;
+}
+
 export async function logout(): Promise<void> {
   localStorage.removeItem('auth_token');
 }

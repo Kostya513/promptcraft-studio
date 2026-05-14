@@ -38,17 +38,20 @@ export async function encryptData(data: string, key: CryptoKey, salt: Uint8Array
     enc.encode(data)
   ) as ArrayBuffer;
   
-  const result = new Uint8Array(SALT_LENGTH + IV_LENGTH + encrypted.byteLength);
-  result.set(salt, 0);
-  result.set(iv, SALT_LENGTH);
-  result.set(new Uint8Array(encrypted), SALT_LENGTH + IV_LENGTH);
+  // Формат: [iv (12)][encrypted data] — БЕЗ СОЛИ!
+  const result = new Uint8Array(IV_LENGTH + encrypted.byteLength);
+  result.set(iv, 0);
+  result.set(new Uint8Array(encrypted), IV_LENGTH);
   
   return result;
 }
 
-export async function decryptData(encryptedData: Uint8Array, key: CryptoKey): Promise<string> {
-  const iv = encryptedData.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
-  const data = encryptedData.slice(SALT_LENGTH + IV_LENGTH);
+export async function decryptData(encryptedDataWithIv: Uint8Array, key: CryptoKey): Promise<string> {
+  // Извлекаем IV (первые 12 байт) и данные
+  const iv = encryptedDataWithIv.slice(0, IV_LENGTH);
+  const data = encryptedDataWithIv.slice(IV_LENGTH);
+  
+  console.log('🔓 decryptData - iv:', iv, 'data length:', data.length);
   
   const decrypted = await crypto.subtle.decrypt(
     { name: ALGORITHM, iv, tagLength: 128 },
@@ -84,6 +87,7 @@ export async function hashPassword(password: string, salt: Uint8Array): Promise<
 }
 
 export function packEncrypted(salt: Uint8Array, encrypted: Uint8Array): string {
+  // Формат: [salt (16)][iv+encrypted]
   const combined = new Uint8Array(salt.length + encrypted.length);
   combined.set(salt, 0);
   combined.set(encrypted, salt.length);

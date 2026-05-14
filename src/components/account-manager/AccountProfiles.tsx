@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Star, Copy, Pencil, Trash2, X, Info } from "lucide-react";
 
 interface Profile {
@@ -10,12 +10,12 @@ interface Profile {
   isActive: boolean;
 }
 
-const initialProfiles: Profile[] = [];
+const STORAGE_KEY = "promptcraft_profiles";
 
 const inputCls = "w-full px-3 py-2.5 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 export function AccountProfiles() {
-  const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -26,6 +26,30 @@ export function AccountProfiles() {
     company: "", inn: "", website: "", socialLinks: "", passwordNote: "", externalPwManager: false,
     tags: [] as string[],
   });
+
+  // Загрузка профилей из localStorage при монтировании
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setProfiles(parsed);
+        console.log('✅ Загружено профилей:', parsed.length);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка загрузки профилей:', error);
+    }
+  }, []);
+
+  // Сохранение профилей в localStorage при изменении
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
+      console.log('✅ Профили сохранены:', profiles.length);
+    } catch (error) {
+      console.error('❌ Ошибка сохранения профилей:', error);
+    }
+  }, [profiles]);
 
   const activeProfile = profiles.find(p => p.isActive);
 
@@ -46,27 +70,51 @@ export function AccountProfiles() {
 
   const openCreate = () => {
     setEditingId(null);
-    setFormData({ name: "", firstName: "", lastName: "", patronymic: "", email: "", extraEmails: [""], phone: "", country: "Россия", city: "", zip: "", street: "", house: "", apartment: "", company: "", inn: "", website: "", socialLinks: "", passwordNote: "", externalPwManager: false, tags: [] });
+    setFormData({ 
+      name: "", firstName: "", lastName: "", patronymic: "", email: "", extraEmails: [""],
+      phone: "", country: "Россия", city: "", zip: "", street: "", house: "", apartment: "",
+      company: "", inn: "", website: "", socialLinks: "", passwordNote: "", externalPwManager: false, tags: [] 
+    });
     setShowForm(true);
   };
 
   const handleSaveProfile = () => {
     if (!formData.name.trim()) return;
+    
     if (editingId) {
-      setProfiles(prev => prev.map(p => p.id === editingId ? { ...p, name: formData.name, email: formData.email, city: formData.city, tags: formData.tags } : p));
+      // Редактирование существующего
+      setProfiles(prev => prev.map(p => 
+        p.id === editingId 
+          ? { ...p, name: formData.name, email: formData.email, city: formData.city, tags: formData.tags } 
+          : p
+      ));
     } else {
-      const newProfile: Profile = { id: Date.now().toString(), name: formData.name, email: formData.email, city: formData.city, tags: formData.tags.length ? formData.tags : ["Личный"], isActive: false };
+      // Создание нового
+      const newProfile: Profile = { 
+        id: Date.now().toString(), 
+        name: formData.name, 
+        email: formData.email, 
+        city: formData.city, 
+        tags: formData.tags.length ? formData.tags : ["Личный"], 
+        isActive: profiles.length === 0 // Первый профиль делаем активным
+      };
       setProfiles(prev => [...prev, newProfile]);
     }
     setShowForm(false);
   };
 
   const toggleTag = (tag: string) => {
-    setFormData(prev => ({ ...prev, tags: prev.tags.includes(tag) ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag] }));
+    setFormData(prev => ({ 
+      ...prev, 
+      tags: prev.tags.includes(tag) ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag] 
+    }));
   };
 
   const addExtraEmail = () => setFormData(prev => ({ ...prev, extraEmails: [...prev.extraEmails, ""] }));
-  const updateExtraEmail = (i: number, val: string) => setFormData(prev => ({ ...prev, extraEmails: prev.extraEmails.map((e, idx) => idx === i ? val : e) }));
+  const updateExtraEmail = (i: number, val: string) => setFormData(prev => ({ 
+    ...prev, 
+    extraEmails: prev.extraEmails.map((e, idx) => idx === i ? val : e) 
+  }));
 
   if (showForm) {
     return (

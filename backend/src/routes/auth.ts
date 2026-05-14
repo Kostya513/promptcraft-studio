@@ -9,6 +9,23 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 const tempUsers: any[] = [];
 let tempUserId = 1;
 
+export function findOrCreateSocialUser(userEmail: string, provider: string) {
+  let user: any = tempUsers.find((u) => u.email === userEmail);
+  if (!user) {
+    user = {
+      id: tempUserId++,
+      email: userEmail,
+      name: (userEmail || provider).split('@')[0],
+      avatar_url: null,
+      provider,
+      role: 'business',
+      created_at: new Date().toISOString(),
+    };
+    tempUsers.push(user);
+  }
+  return user;
+}
+
 router.post("/register", async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, name } = req.body;
@@ -83,6 +100,47 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
   } catch (error: any) {
     console.error("❌ Login error:", error.message);
     res.status(500).json({ error: "Ошибка входа", details: error.message });
+  }
+});
+
+// Social login (VK, Yandex, etc.) — mock provider but returns real JWT and saves user
+router.post("/social-login", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { provider, email } = req.body;
+    if (!provider) {
+      res.status(400).json({ error: "Provider обязателен" });
+      return;
+    }
+
+    const userEmail = email || `${provider}@example.com`;
+    let user: any = tempUsers.find((u) => u.email === userEmail);
+    if (!user) {
+      user = {
+        id: tempUserId++,
+        email: userEmail,
+        name: (userEmail || provider).split("@")[0],
+        avatar_url: null,
+        provider,
+        role: "business",
+        created_at: new Date().toISOString(),
+      } as any;
+      tempUsers.push(user);
+    }
+
+    const payload = {
+      userId: user.id,
+      email: user.email,
+      provider,
+      role: user.role || "business",
+    };
+
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as any);
+
+    console.log(`[SOCIAL LOGIN] user=${user.email} provider=${provider}`);
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url, role: user.role } });
+  } catch (error: any) {
+    console.error("❌ Social login error:", error.message);
+    res.status(500).json({ error: "Ошибка социальной авторизации", details: error.message });
   }
 });
 

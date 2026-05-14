@@ -76,19 +76,34 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
 
   // Загрузка зашифрованных данных при разблокировке
   useEffect(() => {
+    console.log('🔑 cryptoKey:', cryptoKey ? 'получен' : 'не получен');
+    
     if (cryptoKey) {
       const stored = localStorage.getItem("encrypted_accounts");
+      console.log('💾 localStorage encrypted_accounts:', stored ? 'найдено' : 'не найдено');
+      
       if (stored) {
         try {
           const { salt, data } = unpackEncrypted(stored);
-          const key = cryptoKey; // уже получен из мастер-пароля
-          decryptData(new Uint8Array([...salt, ...data]), key).then((decrypted) => {
+          console.log('📦 unpackEncrypted - salt length:', salt.length, 'data length:', data.length);
+          
+          const key = cryptoKey;
+          
+          // Передаём ТОЛЬКО data (без соли!) в decryptData
+          console.log('🔓 Передаём data в decryptData, length:', data.length);
+          
+          decryptData(data, key).then((decrypted) => {
             const parsed = JSON.parse(decrypted) as Account[];
             setAccounts(parsed);
+            console.log('✅ Аккаунты загружены:', parsed.length);
+          }).catch((err) => {
+            console.error('❌ Ошибка расшифровки:', err);
           });
         } catch (e) {
-          console.error("Ошибка расшифровки:", e);
+          console.error("❌ Ошибка unpackEncrypted:", e);
         }
+      } else {
+        console.log('ℹ️ Нет зашифрованных аккаунтов в localStorage');
       }
     }
   }, [cryptoKey]);
@@ -132,7 +147,14 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
   };
 
   const handleSave = async () => {
-    if (!form.service?.trim()) return;
+    if (!form.service?.trim()) {
+      alert("Введите название сервиса");
+      return;
+    }
+    
+    console.log('💾 Сохранение аккаунта...');
+    console.log('🔑 cryptoKey:', cryptoKey ? 'есть' : 'НЕТ');
+    
     const newAcc: Account = {
       id: Date.now().toString(), service: form.service || "", url: form.url || "", profile: form.profile || "Личный",
       type: form.type || "Аккаунт", status: form.status || "Активен", plan: form.plan || "—",
@@ -143,16 +165,18 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
     
     const updated = [...accounts, newAcc];
     setAccounts(updated);
+    console.log('✅ Аккаунт добавлен в память:', updated.length);
     
-    // Шифруем и сохраняем если есть ключ
     if (cryptoKey) {
       try {
         const salt = crypto.getRandomValues(new Uint8Array(16));
         const encrypted = await encryptData(JSON.stringify(updated), cryptoKey, salt);
         const packed = packEncrypted(salt, encrypted);
         localStorage.setItem("encrypted_accounts", packed);
+        console.log('✅ Аккаунты зашифрованы и сохранены в localStorage');
       } catch (e) {
-        console.error("Ошибка шифрования:", e);
+        console.error("❌ Ошибка шифрования:", e);
+        alert("Ошибка сохранения! Проверьте консоль.");
       }
     }
     
@@ -171,7 +195,7 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
           const packed = packEncrypted(salt, encrypted);
           localStorage.setItem("encrypted_accounts", packed);
         } catch (e) {
-          console.error("Ошибка шифрования:", e);
+          console.error("❌ Ошибка шифрования при удалении:", e);
         }
       }
     }
@@ -200,7 +224,6 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Summary */}
       <div className="grid sm:grid-cols-2 gap-4">
         <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1"><CreditCard className="h-4 w-4" /> Итого в месяц</div>
@@ -212,7 +235,6 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
         </div>
       </div>
 
-      {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />        
@@ -226,7 +248,6 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
         </button>
       </div>
 
-      {/* Type filters */}
       <div className="flex gap-1 overflow-x-auto pb-1">
         {typeFilters.map((f) => (
           <button
@@ -241,77 +262,68 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
         ))}
       </div>
 
-      {/* List or empty state */}
       {filtered.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-sm text-muted-foreground">Список аккаунтов пуст</p>
         </div>
       ) : (
-        <>
-      {/* Cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((a) => (
-          <div key={a.id} className="bg-card rounded-xl border border-border p-4 relative">
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`h-2 w-2 rounded-full flex-shrink-0 ${a.status === "Активен" ? "bg-success" : a.status === "Заморожен" ? "bg-warning" : "bg-muted-foreground"}`} />
-              <h3 className="font-medium text-sm flex-1 truncate">{a.service}</h3>
-              {a.has2fa && <span title="2FA"><ShieldCheck className="h-3.5 w-3.5 text-success flex-shrink-0" /></span>}
-              {a.postingEnabled && <span title="Постинг"><Send className="h-3.5 w-3.5 text-primary flex-shrink-0" /></span>}
-            </div>
-
-            <p className="text-xs text-muted-foreground mb-1">{a.profile} • {a.type}</p>
-
-            <div className="flex items-center gap-1 mb-1">
-              <span className="text-xs text-muted-foreground truncate flex-1">
-                {showPasswords[a.id] ? a.login : a.login.replace(/(.{3}).*(@.*)/, "$1***$2")}
-              </span>
-              <button onClick={() => setShowPasswords((p) => ({ ...p, [a.id]: !p[a.id] }))} className="h-6 w-6 rounded flex items-center justify-center hover:bg-muted">
-                {showPasswords[a.id] ? <EyeOff className="h-3 w-3 text-muted-foreground" /> : <Eye className="h-3 w-3 text-muted-foreground" />}
-              </button>
-              <button onClick={() => { navigator.clipboard.writeText(a.login); alert("Скопировано"); }} className="h-6 w-6 rounded flex items-center justify-center hover:bg-muted">
-                <Copy className="h-3 w-3 text-muted-foreground" />
-              </button>
-            </div>
-
-            {a.costAmount !== "0 ₽" && a.costAmount !== "0" && (
-              <p className="text-xs mb-1"><span className="font-medium">{a.costAmount}</span><span className="text-muted-foreground">/{a.costPeriod}</span>
-                {a.nextPayment && a.nextPayment !== "—" && <span className="text-muted-foreground"> • след: {new Date(a.nextPayment).toLocaleDateString("ru-RU")}</span>}
-              </p>
-            )}
-
-            {a.lastLogin && (
-              <p className="text-[10px] text-muted-foreground mb-2">Последний вход: {new Date(a.lastLogin).toLocaleDateString("ru-RU")}</p>
-            )}
-
-            <div className="flex items-center gap-1 pt-2 border-t border-border/50">
-              <button onClick={() => handleOneClickLogin(a)} className="h-7 px-2 rounded-md hover:bg-muted flex items-center gap-1 text-[10px] text-muted-foreground transition-colors" title="Войти">
-                <ExternalLink className="h-3 w-3" /> Войти
-              </button>
-              <button onClick={() => togglePosting(a.id)} className={`h-7 px-2 rounded-md flex items-center gap-1 text-[10px] transition-colors ${a.postingEnabled ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Постинг">
-                <Send className="h-3 w-3" />
-              </button>
-              <button onClick={() => setDetailAccount(a)} className="h-7 px-2 rounded-md hover:bg-muted flex items-center gap-1 text-[10px] text-muted-foreground transition-colors" title="Подробнее">
-                <Key className="h-3 w-3" /> Детали
-              </button>
-              <div className="relative ml-auto">
-                <button onClick={() => setMenuOpen(menuOpen === a.id ? null : a.id)} className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center">
-                  <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((a) => (
+            <div key={a.id} className="bg-card rounded-xl border border-border p-4 relative">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`h-2 w-2 rounded-full flex-shrink-0 ${a.status === "Активен" ? "bg-success" : a.status === "Заморожен" ? "bg-warning" : "bg-muted-foreground"}`} />
+                <h3 className="font-medium text-sm flex-1 truncate">{a.service}</h3>
+                {a.has2fa && <span title="2FA"><ShieldCheck className="h-3.5 w-3.5 text-success flex-shrink-0" /></span>}
+                {a.postingEnabled && <span title="Постинг"><Send className="h-3.5 w-3.5 text-primary flex-shrink-0" /></span>}
+              </div>
+              <p className="text-xs text-muted-foreground mb-1">{a.profile} • {a.type}</p>
+              <div className="flex items-center gap-1 mb-1">
+                <span className="text-xs text-muted-foreground truncate flex-1">
+                  {showPasswords[a.id] ? a.login : a.login.replace(/(.{3}).*(@.*)/, "$1***$2")}
+                </span>
+                <button onClick={() => setShowPasswords((p) => ({ ...p, [a.id]: !p[a.id] }))} className="h-6 w-6 rounded flex items-center justify-center hover:bg-muted">
+                  {showPasswords[a.id] ? <EyeOff className="h-3 w-3 text-muted-foreground" /> : <Eye className="h-3 w-3 text-muted-foreground" />}
                 </button>
-                {menuOpen === a.id && (
-                  <div className="absolute right-0 top-8 z-10 bg-popover border border-border rounded-xl shadow-elevated py-1 w-40 animate-fade-in">
-                    <button onClick={() => { setDetailAccount(a); setMenuOpen(null); }} className="w-full px-3 py-2 text-xs text-left hover:bg-muted">Редактировать</button>
-                    <button onClick={() => { handleDelete(a.id); setMenuOpen(null); }} className="w-full px-3 py-2 text-xs text-left hover:bg-destructive/10 text-destructive">Удалить</button>
-                    <button onClick={() => setMenuOpen(null)} className="w-full px-3 py-2 text-xs text-left hover:bg-muted">История</button>
-                  </div>
-                )}
+                <button onClick={() => { navigator.clipboard.writeText(a.login); alert("Скопировано"); }} className="h-6 w-6 rounded flex items-center justify-center hover:bg-muted">
+                  <Copy className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </div>
+              {a.costAmount !== "0 ₽" && a.costAmount !== "0" && (
+                <p className="text-xs mb-1"><span className="font-medium">{a.costAmount}</span><span className="text-muted-foreground">/{a.costPeriod}</span>
+                  {a.nextPayment && a.nextPayment !== "—" && <span className="text-muted-foreground"> • след: {new Date(a.nextPayment).toLocaleDateString("ru-RU")}</span>}
+                </p>
+              )}
+              {a.lastLogin && (
+                <p className="text-[10px] text-muted-foreground mb-2">Последний вход: {new Date(a.lastLogin).toLocaleDateString("ru-RU")}</p>
+              )}
+              <div className="flex items-center gap-1 pt-2 border-t border-border/50">
+                <button onClick={() => handleOneClickLogin(a)} className="h-7 px-2 rounded-md hover:bg-muted flex items-center gap-1 text-[10px] text-muted-foreground transition-colors" title="Войти">
+                  <ExternalLink className="h-3 w-3" /> Войти
+                </button>
+                <button onClick={() => togglePosting(a.id)} className={`h-7 px-2 rounded-md flex items-center gap-1 text-[10px] transition-colors ${a.postingEnabled ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Постинг">
+                  <Send className="h-3 w-3" />
+                </button>
+                <button onClick={() => setDetailAccount(a)} className="h-7 px-2 rounded-md hover:bg-muted flex items-center gap-1 text-[10px] text-muted-foreground transition-colors" title="Подробнее">
+                  <Key className="h-3 w-3" /> Детали
+                </button>
+                <div className="relative ml-auto">
+                  <button onClick={() => setMenuOpen(menuOpen === a.id ? null : a.id)} className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center">
+                    <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                  {menuOpen === a.id && (
+                    <div className="absolute right-0 top-8 z-10 bg-popover border border-border rounded-xl shadow-elevated py-1 w-40 animate-fade-in">
+                      <button onClick={() => { setDetailAccount(a); setMenuOpen(null); }} className="w-full px-3 py-2 text-xs text-left hover:bg-muted">Редактировать</button>
+                      <button onClick={() => { handleDelete(a.id); setMenuOpen(null); }} className="w-full px-3 py-2 text-xs text-left hover:bg-destructive/10 text-destructive">Удалить</button>
+                      <button onClick={() => setMenuOpen(null)} className="w-full px-3 py-2 text-xs text-left hover:bg-muted">История</button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-      </>) }
+          ))}
+        </div>
+      )}
 
-      {/* Add form */}
       {showForm && (
         <div className="bg-card rounded-xl border border-border p-5 animate-slide-up">
           <div className="flex items-center justify-between mb-4">
@@ -342,19 +354,8 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
         </div>
       )}
 
-      {/* Detail modal */}
-      <AccountDetailModal
-        open={!!detailAccount}
-        onClose={() => setDetailAccount(null)}
-        account={detailAccount}
-      />
-
-      {/* Profile generator */}
-      <ProfileGenerator
-        open={showGenerator}
-        onClose={() => setShowGenerator(false)}
-        onSave={handleSaveGenerated}
-      />
+      <AccountDetailModal open={!!detailAccount} onClose={() => setDetailAccount(null)} account={detailAccount} />
+      <ProfileGenerator open={showGenerator} onClose={() => setShowGenerator(false)} onSave={handleSaveGenerated} />
     </div>
   );
 }

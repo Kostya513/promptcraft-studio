@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Search, Heart, Trash2, ShoppingCart, Play, ExternalLink,
   FolderPlus, Tag, TrendingDown, TrendingUp, BarChart3,
-  CheckSquare, Bell, X, ChevronDown, Folder
+  CheckSquare, Bell, X, ChevronDown, Folder, FolderX
 } from "lucide-react";
 
 interface FavoritePrompt {
@@ -20,9 +20,7 @@ interface FavoritePrompt {
   image: string;
 }
 
-// favorite prompts come from backend
 const mockFavorites: FavoritePrompt[] = [];
-  // remove placeholder.svg dependency
 const mockFolders: string[] = ["Все"];
 const sortOptions = ["По дате добавления", "По цене", "По названию"];
 
@@ -50,7 +48,41 @@ export default function FavoritesPage() {
   const clearAll = () => { if (confirm("Очистить все избранные?")) setFavorites([]); };
   const toggleSelect = (id: string) => setSelectedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   const buySelected = () => console.log("Buy selected:", selectedItems);
-  const addFolder = () => { if (newFolderName && !folders.includes(newFolderName)) { setFolders(prev => [...prev, newFolderName]); setNewFolderName(""); setShowNewFolder(false); } };
+  
+  const addFolder = () => { 
+    if (newFolderName && !folders.includes(newFolderName)) { 
+      setFolders(prev => [...prev, newFolderName]); 
+      setNewFolderName(""); 
+      setShowNewFolder(false); 
+    } 
+  };
+  
+  // ✅ НОВАЯ ФУНКЦИЯ: Удаление папки
+  const deleteFolder = (folderName: string) => {
+    if (folderName === "Все") {
+      alert("Папку 'Все' нельзя удалить");
+      return;
+    }
+    
+    // Считаем сколько промптов в папке
+    const count = favorites.filter(f => f.folder === folderName).length;
+    
+    if (count > 0) {
+      const confirmMove = confirm(`В папке "${folderName}" есть ${count} промпт(ов).\n\nПереместить их в "Все" и удалить папку?`);
+      if (!confirmMove) return;
+      
+      // Перемещаем промпты в "Все"
+      setFavorites(prev => prev.map(f => f.folder === folderName ? { ...f, folder: "Все" } : f));
+    }
+    
+    // Удаляем папку
+    setFolders(prev => prev.filter(f => f !== folderName));
+    
+    // Если удалили активную папку — переключаемся на "Все"
+    if (activeFolder === folderName) {
+      setActiveFolder("Все");
+    }
+  };
 
   const totalSaved = favorites.filter(f => f.originalPrice && f.originalPrice > f.price).reduce((sum, f) => sum + ((f.originalPrice || 0) - f.price), 0);
   const totalPurchased = favorites.filter(f => f.purchased).length;
@@ -106,9 +138,31 @@ export default function FavoritesPage() {
       {/* Folders */}
       <div className="flex gap-2 mb-4 overflow-x-auto">
         {folders.map(f => (
-          <button key={f} onClick={() => setActiveFolder(f)} className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap flex items-center gap-1 ${activeFolder === f ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-            <Folder className="h-3 w-3" /> {f}
-          </button>
+          <div key={f} className="relative group">
+            <button 
+              onClick={() => setActiveFolder(f)} 
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap flex items-center gap-1 ${
+                activeFolder === f ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              <Folder className="h-3 w-3" /> {f}
+              {f !== "Все" && (
+                <span className="ml-1 px-1.5 py-0.5 rounded bg-background/20 text-[10px]">
+                  {favorites.filter(pf => pf.folder === f).length}
+                </span>
+              )}
+            </button>
+            {/* ✅ Кнопка удаления папки (показывается при наведении) */}
+            {f !== "Все" && (
+              <button
+                onClick={() => deleteFolder(f)}
+                className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/90"
+                title="Удалить папку"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            )}
+          </div>
         ))}
         <button onClick={() => setShowNewFolder(true)} className="px-3 py-1.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground flex items-center gap-1 hover:bg-muted">
           <FolderPlus className="h-3 w-3" /> Папка

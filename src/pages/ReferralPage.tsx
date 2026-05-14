@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,9 @@ import {
   Search, Filter, ChevronRight, Star, ExternalLink, Ban
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { QRCodeSVG } from 'qrcode.react';
 
-// ─── Types ───
+// ─── Types ─
 interface Referee {
   id: string;
   nickname: string;
@@ -42,15 +43,6 @@ interface Payout {
   method: "card" | "sbp" | "balance";
   status: "processed" | "pending" | "failed";
   txId: string;
-}
-
-interface Violation {
-  id: string;
-  date: string;
-  type: string;
-  severity: 1 | 2 | 3;
-  description: string;
-  status: "warning" | "blocked" | "banned";
 }
 
 // ─── Mock Data ───
@@ -125,6 +117,7 @@ export default function ReferralPage() {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawMethod, setWithdrawMethod] = useState("card");
   const [promoInput, setPromoInput] = useState(PROMO_CODE);
+  const qrRef = useRef<HTMLDivElement>(null);
 
   // Stats
   const totalEarned = mockEarnings.filter(e => e.status === "paid").reduce((s, e) => s + e.amount, 0);
@@ -165,10 +158,42 @@ export default function ReferralPage() {
     const urls: Record<string, string> = {
       telegram: `https://t.me/share/url?url=${encodeURIComponent(REFERRAL_LINK)}&text=${msg}`,
       vk: `https://vk.com/share.php?url=${encodeURIComponent(REFERRAL_LINK)}&title=${msg}`,
-      whatsapp: `https://wa.me/?text=${msg}`,
+      tenchat: `https://tenchat.ru/feed?text=${msg}`,
       email: `mailto:?subject=${encodeURIComponent("Присоединяйся в Промт-Студию")}&body=${msg}`,
     };
     window.open(urls[platform], "_blank");
+  };
+
+  const downloadQR = () => {
+    try {
+      const svg = qrRef.current?.querySelector("svg");
+      if (!svg) {
+        toast({ title: "Ошибка", description: "QR-код не найден", variant: "destructive" });
+        return;
+      }
+      
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx?.drawImage(img, 0, 0);
+        const url = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.download = "promt-studiya-referral-qr.png";
+        link.href = url;
+        link.click();
+        toast({ title: "QR-код скачан", description: "Файл сохранён на устройство" });
+      };
+      
+      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+    } catch (e) {
+      console.error("QR download error:", e);
+      toast({ title: "Ошибка", description: "Не удалось скачать QR-код", variant: "destructive" });
+    }
   };
 
   const requestWithdraw = () => {
@@ -266,7 +291,7 @@ export default function ReferralPage() {
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => shareVia("telegram")}><Send className="h-4 w-4 mr-1" />Telegram</Button>
                   <Button size="sm" variant="outline" onClick={() => shareVia("vk")}>VK</Button>
-                  <Button size="sm" variant="outline" onClick={() => shareVia("whatsapp")}><MessageCircle className="h-4 w-4 mr-1" />WA</Button>
+                  <Button size="sm" variant="outline" onClick={() => shareVia("tenchat")}><MessageCircle className="h-4 w-4 mr-1" />TenChat</Button>
                   <Button size="sm" variant="outline" onClick={() => shareVia("email")}><Mail className="h-4 w-4 mr-1" />Email</Button>
                 </div>
               </CardContent>
@@ -278,10 +303,19 @@ export default function ReferralPage() {
                 <CardDescription className="text-xs">Сканируйте или скачайте для оффлайн</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-center gap-3">
-                <div className="w-40 h-40 border-2 border-dashed border-border rounded-lg flex items-center justify-center">
-                  <QrCode className="h-24 w-24 text-muted-foreground" />
+                <div ref={qrRef} className="p-2 bg-white rounded-lg">
+                  <QRCodeSVG 
+                    value={REFERRAL_LINK}
+                    size={160}
+                    level="H"
+                    includeMargin={true}
+                    fgColor="#000000"
+                    bgColor="#ffffff"
+                  />
                 </div>
-                <Button size="sm" variant="outline"><Download className="h-4 w-4 mr-1" />Скачать PNG</Button>
+                <Button size="sm" variant="outline" onClick={downloadQR}>
+                  <Download className="h-4 w-4 mr-1" />Скачать PNG
+                </Button>
               </CardContent>
             </Card>
           </div>

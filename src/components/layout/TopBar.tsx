@@ -6,6 +6,8 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
+const BACKEND_URL = "http://localhost:3000";
+
 export function TopBar() {
   const { user, isLoggedIn, getInitial, logout } = useUser();
   const { notifications, unreadCount, markAllRead, markAsRead } = useNotifications();
@@ -41,7 +43,6 @@ export function TopBar() {
   return (
     <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40 safe-area-top">
       <div className="flex items-center gap-3 flex-shrink-0">
-        {/* Гамбургер для мобильных */}
         <Sheet open={showMobileMenu} onOpenChange={setShowMobileMenu}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="md:hidden h-9 w-9 touch-target">
@@ -50,7 +51,6 @@ export function TopBar() {
           </SheetTrigger>
           <SheetContent side="left" className="w-[300px] p-0">
             <div className="flex flex-col h-full">
-              {/* Header */}
               <div className="flex items-center justify-between p-4 border-b bg-muted/30">
                 <div className="flex items-center gap-2">
                   <img src="/logo.png" alt="Logo" className="h-6 w-6 object-contain" />
@@ -58,7 +58,6 @@ export function TopBar() {
                 </div>
               </div>
               
-              {/* Navigation */}
               <nav className="flex-1 overflow-y-auto p-3 space-y-1">
                 {mobileNavItems.map((item) => (
                   <Link
@@ -73,7 +72,6 @@ export function TopBar() {
                 ))}
               </nav>
               
-              {/* Footer - Pro Block */}
               <div className="p-3 border-t bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600">
                 <Link
                   to="/settings?tab=Подписка"
@@ -88,7 +86,6 @@ export function TopBar() {
           </SheetContent>
         </Sheet>
 
-        {/* Логотип */}
         <Link to="/studio" className="flex items-center gap-2 flex-shrink-0">
           <div className="relative p-[1.5px] rounded-[3px] bg-gradient-to-br from-yellow-400 via-purple-600 via-blue-500 to-purple-800">
             <img src="/logo.png" alt="Промт-Студия" className="h-8 w-8 object-contain bg-white rounded-[2px] flex-shrink-0" />
@@ -100,7 +97,6 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => { setShowNotifications(!showNotifications); setShowProfile(false); }}
@@ -147,17 +143,24 @@ export function TopBar() {
           )}
         </div>
 
-        {/* Auth / Profile */}
         {isLoggedIn ? (
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => { setShowProfile(!showProfile); setShowNotifications(false); }}
               className="h-8 w-8 rounded-full overflow-hidden flex items-center justify-center gradient-primary text-primary-foreground text-xs font-bold touch-target"
             >
-              {user.avatar ? (
-                <img src={user.avatar} alt="avatar" className="h-full w-full object-cover" />
+              {user.avatar && user.avatar.trim() !== '' ? (
+                <img 
+                  src={user.avatar.startsWith('http') ? user.avatar : `${BACKEND_URL}${user.avatar}`} 
+                  alt="avatar" 
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    console.error('Failed to load avatar:', user.avatar);
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
               ) : (
-                getInitial()
+                <span>{getInitial()}</span>
               )}
             </button>
 

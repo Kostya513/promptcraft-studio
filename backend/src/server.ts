@@ -2,19 +2,22 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
+import path from 'path';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8080';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 
 // ============================================
 // MIDDLEWARE
 // ============================================
 app.use(helmet());
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: [FRONTEND_URL, 'http://localhost:8080', 'http://localhost:8081', 'http://localhost:8082'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -23,35 +26,74 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging
-app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+app.use((_req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
 // ============================================
 // HEALTH CHECK
 // ============================================
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
-  });
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ============================================
+// MOCK SOCIAL LOGIN
+// ============================================
+app.post('/api/auth/social-login', (req: Request, res: Response) => {
+  const { provider, email } = req.body;
+  
+  console.log(`[SOCIAL LOGIN] Provider: ${provider}, Email: ${email}`);
+  
+  const payload = {
+    email: email || `${provider}@example.com`,
+    provider,
+    role: 'business',
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60)
+  };
+  
+  const token = jwt.sign(payload, JWT_SECRET, { algorithm: 'HS256' });
+  
+  const user = {
+    id: Date.now(),
+    email: email || `${provider}@example.com`,
+    name: (email || provider).split('@')[0],
+    avatar_url: null,
+    role: 'business'
+  };
+  
+  console.log(`[SUCCESS] User logged in: ${user.email}`);
+  res.json({ token, user });
 });
 
 // ============================================
 // API ROUTES
 // ============================================
 import authRoutes from './routes/auth.js';
+import oauthRoutes from './routes/oauth.js';
 import promptsRoutes from './routes/prompts.js';
 import usersRoutes from './routes/users.js';
 import aiRoutes from './routes/ai.js';
 
 app.use('/api/auth', authRoutes);
+app.use('/api/oauth', oauthRoutes);
 app.use('/api/prompts', promptsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/ai', aiRoutes);
+
+// ============================================
+// SERVE UPLOADED FILES (с правильными CORS заголовками)
+// ============================================
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+  setHeaders: (res: Response, filePath: string) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    console.log('📤 Serving file:', filePath);
+  }
+}));
 
 // ============================================
 // 404 HANDLER
@@ -65,6 +107,12 @@ app.use((req: Request, res: Response) => {
       'POST /api/auth/register',
       'POST /api/auth/login',
       'GET /api/auth/me',
+      'POST /api/auth/social-login',
+      'GET /api/oauth/vk',
+      'GET /api/oauth/yandex',
+      'GET /api/oauth/google',
+      'POST /api/users/avatar',
+      'GET /api/users/profile',
       'GET /api/prompts',
       'POST /api/prompts',
       'GET /api/users/profile'
@@ -75,7 +123,7 @@ app.use((req: Request, res: Response) => {
 // ============================================
 // ERROR HANDLER
 // ============================================
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('❌ Error:', err.stack);
   res.status(500).json({ 
     error: 'Internal Server Error',
@@ -89,17 +137,23 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 app.listen(PORT, () => {
   console.log('');
   console.log('╔═══════════════════════════════════════════════════════════╗');
-  console.log('║         ��� PROMPT STUDIO BACKEND SERVER                  ║');
+  console.log('║         🚀 PROMPT STUDIO BACKEND SERVER                  ║');
   console.log('╠═══════════════════════════════════════════════════════════╣');
-  console.log(`║  ��� Server:    http://localhost:${PORT}                    ║`);
-  console.log(`║  ��� Frontend:  ${FRONTEND_URL}                             ║`);
-  console.log(`║  ��� Environment: ${process.env.NODE_ENV || 'development'}                          ║`);
+  console.log(`║  🌐 Server:    http://localhost:${PORT}                    ║`);
+  console.log(`║  🔗 Frontend:  ${FRONTEND_URL}                             ║`);
+  console.log(`║  ⚙️  Environment: ${process.env.NODE_ENV || 'development'} ║`);
   console.log('╠═══════════════════════════════════════════════════════════╣');
   console.log('║  Available Endpoints:                                     ║');
   console.log('║  • GET  /health                                           ║');
   console.log('║  • POST /api/auth/register                                ║');
   console.log('║  • POST /api/auth/login                                   ║');
   console.log('║  • GET  /api/auth/me                                      ║');
+  console.log('║  • POST /api/auth/social-login                            ║');
+  console.log('║  • GET  /api/oauth/vk                                     ║');
+  console.log('║  • GET  /api/oauth/yandex                                 ║');
+  console.log('║  • GET  /api/oauth/google                                 ║');
+  console.log('║  • POST /api/users/avatar                                 ║');
+  console.log('║  • GET  /api/users/profile                                ║');
   console.log('║  • GET  /api/prompts                                      ║');
   console.log('║  • POST /api/prompts                                      ║');
   console.log('║  • GET  /api/users/profile                                ║');

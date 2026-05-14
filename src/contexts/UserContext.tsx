@@ -20,6 +20,7 @@ interface UserContextType {
   user: UserProfile;
   setUser: (u: UserProfile) => void;
   isLoggedIn: boolean;
+  isLoading: boolean;
   login: (email: string, token: string) => void;
   logout: () => Promise<void>;
   getInitial: () => string;
@@ -82,8 +83,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const login = (email: string, token: string) => {
     localStorage.setItem('auth_token', token);
-    setUser((prev) => ({ 
-      ...prev, 
+    setUser((prev) => ({
+      ...prev,
       email,
       name: email.split('@')[0],
     }));
@@ -122,12 +123,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setUser({ ...u, roleLabel: roleLabels[u.role] || u.role });
   };
 
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Загрузка...</div>;
-  }
-
   return (
-    <UserContext.Provider value={{ user, setUser: updateUser, isLoggedIn, login, logout, getInitial, refreshUser }}>
+    <UserContext.Provider value={{ user, setUser: updateUser, isLoggedIn, isLoading, login, logout, getInitial, refreshUser }}>
       {children}
     </UserContext.Provider>
   );
