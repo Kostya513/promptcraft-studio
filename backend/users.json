@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "email": "vk@demo.com",
+    "name": "vk",
+    "avatar_url": "/uploads/avatars/avatar-1779016545882-592119284.webp"
+  },
+  {
+    "id": 1779016471768,
+    "email": "yandex@demo.com",
+    "name": "yandex",
+    "avatar_url": null,
+    "provider": "yandex",
+    "role": "business",
+    "created_at": "2026-05-17T11:14:31.768Z"
+  }
+]

@@ -7,10 +7,30 @@ import fs from "fs";
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
 
-declare global {
-  var tempUsers: any[];
-}
-if (!global.tempUsers) global.tempUsers = [];
+// Путь к файлу для хранения пользователей
+const USERS_FILE = path.join(__dirname, '../../users.json');
+
+// Загрузка пользователей из файла
+const loadUsers = (): any[] => {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const data = fs.readFileSync(USERS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error loading users:', error);
+  }
+  return [];
+};
+
+// Сохранение пользователей в файл
+const saveUsers = (users: any[]): void => {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Error saving users:', error);
+  }
+};
 
 // ============================================
 // MULTER CONFIGURATION
@@ -71,7 +91,8 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction): 
 // ============================================
 
 router.get("/profile", authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  let user = global.tempUsers.find((u: any) => u.id === (req as any).userId);
+  let users = loadUsers();
+  let user = users.find((u: any) => u.id === (req as any).userId);
   
   if (!user) {
     user = {
@@ -80,7 +101,8 @@ router.get("/profile", authMiddleware, async (req: Request, res: Response): Prom
       name: ((req as any).userEmail || 'user@example.com').split('@')[0],
       avatar_url: ''
     };
-    global.tempUsers.push(user);
+    users.push(user);
+    saveUsers(users);
   }
   
   res.json({ user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url || "" } });
@@ -89,7 +111,8 @@ router.get("/profile", authMiddleware, async (req: Request, res: Response): Prom
 router.put("/profile", authMiddleware, async (req: Request, res: Response): Promise<void> => {
   const { name, avatar_url } = req.body;
   
-  let user = global.tempUsers.find((u: any) => u.id === (req as any).userId);
+  let users = loadUsers();
+  let user = users.find((u: any) => u.id === (req as any).userId);
   
   if (!user) {
     user = {
@@ -98,11 +121,14 @@ router.put("/profile", authMiddleware, async (req: Request, res: Response): Prom
       name: name || ((req as any).userEmail || 'user@example.com').split('@')[0],
       avatar_url: avatar_url || ''
     };
-    global.tempUsers.push(user);
+    users.push(user);
+    saveUsers(users);
   }
   
   if (name) user.name = name;
   if (avatar_url !== undefined) user.avatar_url = avatar_url;
+  
+  saveUsers(users);
   res.json({ user: { id: user.id, email: user.email, name: user.name, avatar_url: user.avatar_url || "" } });
 });
 
@@ -116,7 +142,8 @@ router.post("/avatar", authMiddleware, upload.single('avatar'), async (req: Requ
     console.log('📥 Avatar upload - userId:', (req as any).userId);
     console.log('📥 Avatar upload - file:', req.file.filename);
     
-    let user = global.tempUsers.find((u: any) => u.id === (req as any).userId);
+    let users = loadUsers();
+    let user = users.find((u: any) => u.id === (req as any).userId);
     
     if (!user) {
       console.log('⚠️ Пользователь не найден, создаём нового');
@@ -126,14 +153,17 @@ router.post("/avatar", authMiddleware, upload.single('avatar'), async (req: Requ
         name: ((req as any).userEmail || 'user@example.com').split('@')[0],
         avatar_url: ''
       };
-      global.tempUsers.push(user);
+      users.push(user);
     }
     
     const avatarUrl = `/uploads/avatars/${req.file.filename}`;
     user.avatar_url = avatarUrl;
     
+    // Сохраняем в файл
+    saveUsers(users);
+    
     console.log('✅ Avatar saved:', avatarUrl);
-    console.log('✅ tempUsers now has', global.tempUsers.length, 'users');
+    console.log('✅ Users saved to file');
     
     res.json({
       message: "Аватар загружен",
