@@ -1,32 +1,68 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Users, Crown, Building2, Rocket, Plus, Mail, Trash2, Shield,
   CreditCard, BarChart3, FolderOpen, Search, Settings, Link2,
   Check, X, ChevronRight, UserPlus, Download, Bell, Eye,
-  Edit, MessageSquare, Clock, DollarSign, Lock, RefreshCw
+  Edit, MessageSquare, Clock, DollarSign, Lock, RefreshCw, Zap, FileText,
+  ToggleRight, ToggleLeft, FolderPlus, Folder, Pencil, MoreHorizontal, Copy,
+  Upload, File, Code, Terminal, Copy as CopyIcon, Move, Save, EyeOff,
+  ChevronLeft, Home, Share2, History, GitBranch
 } from "lucide-react";
 
-type TeamTab = "dashboard" | "members" | "library" | "billing" | "settings";
+// --- ТИПЫ ДАННЫХ ---
 
-interface TeamMember {
+type TeamTab = "dashboard" | "members" | "library" | "billing" | "settings";
+type ContentType = "all" | "prompt" | "skill" | "file";
+type ElementType = "prompt" | "skill" | "file";
+type Permission = "admin" | "editor" | "viewer";
+
+interface Folder {
   id: string;
   name: string;
-  email: string;
-  role: "admin" | "manager" | "member" | "viewer";
-  status: "active" | "invited" | "deactivated";
-  joinedAt: string;
-  lastActive: string;
-  spending: number;
+  parentId: string | null;
+  ownerId: string;
+  permissions: Record<string, Permission>;
+  createdAt: string;
+  updatedAt: string;
+  itemCount: number;
+  isPublic: boolean;
 }
 
-interface TeamPrompt {
+interface TeamItem {
   id: string;
+  folderId: string;
+  type: ElementType;
   title: string;
+  description: string;
+  content: string;
   category: string;
   addedBy: string;
   addedAt: string;
-  folder: string;
+  updatedAt: string;
   usageCount: number;
+  version: string;
+  isActive: boolean;
+  tags: string[];
+  files: UploadedFile[];
+  settings?: SkillSettings;
+  status: "draft" | "review" | "active";
+}
+
+interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  uploadedAt: string;
+}
+
+interface SkillSettings {
+  triggers: string[];
+  integrations: string[];
+  inputSchema: string;
+  outputSchema: string;
+  testCases: string[];
 }
 
 interface Invoice {
@@ -37,6 +73,8 @@ interface Invoice {
   items: number;
 }
 
+// --- КОНСТАНТЫ ---
+
 const tiers = [
   {
     key: "startup",
@@ -44,13 +82,7 @@ const tiers = [
     price: "2 999 ₽/мес",
     maxMembers: 5,
     icon: Rocket,
-    features: [
-      "До 5 участников",
-      "Общая библиотека промптов",
-      "Единый биллинг",
-      "Базовые отчёты по расходам",
-      "Стандартная поддержка",
-    ],
+    features: ["До 5 участников", "Общая библиотека промптов и скилов", "Единый биллинг", "Базовые отчёты по расходам", "Стандартная поддержка"],
   },
   {
     key: "business",
@@ -58,15 +90,7 @@ const tiers = [
     price: "9 999 ₽/мес",
     maxMembers: 20,
     icon: Building2,
-    features: [
-      "До 20 участников",
-      "Все функции Startup",
-      "Ролевой доступ (Admin, Manager, Member, Viewer)",
-      "SSO интеграция",
-      "Расширенные отчёты по проектам",
-      "Приоритетная поддержка",
-      "Slack / Teams интеграция",
-    ],
+    features: ["До 20 участников", "Все функции Startup", "Ролевой доступ (Admin, Manager, Member, Viewer)", "SSO интеграция", "Расширенные отчёты по проектам", "Приоритетная поддержка", "Slack / Teams интеграция", "Управление доступом к скилам"],
   },
   {
     key: "enterprise",
@@ -74,57 +98,182 @@ const tiers = [
     price: "Индивидуально",
     maxMembers: Infinity,
     icon: Crown,
-    features: [
-      "Безлимитные участники",
-      "Все функции Business",
-      "Персональный менеджер",
-      "Кастомный SLA",
-      "Интеграции с внутренними системами",
-      "White-label опция",
-      "On-premise развертывание",
-      "Обучающие сессии",
-    ],
+    features: ["Безлимитные участники", "Все функции Business", "Персональный менеджер", "Кастомный SLA", "Интеграции с внутренними системами", "White-label опция", "On-premise развертывание", "Обучающие сессии", "API-доступ к скилам"],
   },
 ];
 
-const roleLabels: Record<string, string> = {
-  admin: "Администратор",
-  manager: "Менеджер",
-  member: "Участник",
-  viewer: "Наблюдатель",
-};
+const roleLabels: Record<string, string> = { admin: "Администратор", manager: "Менеджер", member: "Участник", viewer: "Наблюдатель" };
+const roleColors: Record<string, string> = { admin: "text-destructive", manager: "text-primary", member: "text-foreground", viewer: "text-muted-foreground" };
 
-const roleColors: Record<string, string> = {
-  admin: "text-destructive",
-  manager: "text-primary",
-  member: "text-foreground",
-  viewer: "text-muted-foreground",
-};
+const contentLabels: Record<ElementType, string> = { prompt: "Промпт", skill: "Скил", file: "Файл" };
+const contentIcons: Record<ElementType, JSX.Element> = { prompt: <FileText className="h-3 w-3" />, skill: <Zap className="h-3 w-3" />, file: <File className="h-3 w-3" /> };
+const contentColors: Record<ElementType, string> = { prompt: "bg-blue-100 text-blue-700", skill: "bg-purple-100 text-purple-700", file: "bg-gray-100 text-gray-700" };
 
-const mockMembers: TeamMember[] = [];
+const mockMembers = [];
+const mockInvoices = [];
 
-const mockPrompts: TeamPrompt[] = [];
+// --- КОМПОНЕНТ МЕНЮ ПАПКИ (ВНУТРЕННИЙ) ---
 
-const mockInvoices: Invoice[] = [];
+function FolderContextMenu({ 
+  folder, 
+  onDelete, 
+  onRename 
+}: { 
+  folder: Folder; 
+  onDelete: (id: string) => void; 
+  onRename: (id: string, name: string) => void; 
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [newName, setNewName] = useState(folder.name);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Закрытие меню при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleRename = () => {
+    if (newName.trim()) {
+      onRename(folder.id, newName.trim());
+    }
+    setIsRenaming(false);
+    setIsOpen(false);
+  };
+
+  const handleDelete = () => {
+    if (confirm(`Удалить папку "${folder.name}"? Все элементы внутри тоже будут удалены.`)) {
+      onDelete(folder.id);
+      setIsOpen(false);
+    }
+  };
+
+  if (isRenaming) {
+    return (
+      <div className="absolute top-2 right-2 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-40">
+        <input
+          autoFocus
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleRename()}
+          className="w-full text-xs border rounded px-1 py-1 mb-1 focus:ring-2 focus:ring-primary/30 outline-none"
+        />
+        <div className="flex gap-1">
+          <button onClick={handleRename} className="flex-1 text-[10px] bg-blue-600 text-white rounded px-1 py-0.5 hover:bg-blue-700">OK</button>
+          <button onClick={() => setIsRenaming(false)} className="flex-1 text-[10px] bg-gray-200 rounded px-1 py-0.5 hover:bg-gray-300">X</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button 
+        onClick={(e) => { 
+          e.stopPropagation(); 
+          setIsOpen(!isOpen); 
+        }}
+        className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 animate-in fade-in slide-in-from-top-2 duration-150">
+          <button
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setIsRenaming(true); 
+              setIsOpen(false); 
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            <Edit className="h-3 w-3" /> Переименовать
+          </button>
+          <button
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              handleDelete(); 
+            }}
+            className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+          >
+            <Trash2 className="h-3 w-3" /> Удалить
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- ОСНОВНАЯ СТРАНИЦА ---
 
 export default function TeamAccountsPage() {
   const [hasTeam, setHasTeam] = useState(false);
-  const [activeTab, setActiveTab] = useState<TeamTab>("dashboard");
   const [showTierSelect, setShowTierSelect] = useState(false);
+  const [activeTab, setActiveTab] = useState<TeamTab>("dashboard");
+  
+  // --- ЛОГИКА СОХРАНЕНИЯ (PERSISTENCE) ---
+  const loadFromStorage = (key: string, defaultValue: any) => {
+    try {
+      const saved = localStorage.getItem(key);
+      return saved ? JSON.parse(saved) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  };
+
+  const [folders, setFolders] = useState<Folder[]>(() => 
+    loadFromStorage("team_library_folders", [
+      { id: "root", name: "Все", parentId: null, ownerId: "me", permissions: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), itemCount: 0, isPublic: false },
+      { id: "f1", name: "Маркетинг", parentId: null, ownerId: "me", permissions: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), itemCount: 0, isPublic: false },
+      { id: "f2", name: "Дизайн", parentId: null, ownerId: "me", permissions: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), itemCount: 0, isPublic: false },
+      { id: "f3", name: "Разработка", parentId: null, ownerId: "me", permissions: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), itemCount: 0, isPublic: false },
+    ])
+  );
+
+  const [items, setItems] = useState<TeamItem[]>(() => loadFromStorage("team_library_items", []));
+
+  // Сохранение при любом изменении
+  useEffect(() => {
+    localStorage.setItem("team_library_folders", JSON.stringify(folders));
+    localStorage.setItem("team_library_items", JSON.stringify(items));
+  }, [folders, items]);
+
+  // --- СОСТОЯНИЯ ИНТЕРФЕЙСА ---
+  const [currentFolderId, setCurrentFolderId] = useState<string>("root");
+  const [contentFilter, setContentFilter] = useState<ContentType>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // Модальные окна
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [showItemModal, setShowItemModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<TeamItem | null>(null);
+  const [folderName, setFolderName] = useState("");
+  
+  // Данные формы элемента
+  const [itemTitle, setItemTitle] = useState("");
+  const [itemDescription, setItemDescription] = useState("");
+  const [itemContent, setItemContent] = useState("");
+  const [itemType, setItemType] = useState<ElementType>("prompt");
+  const [itemTags, setItemTags] = useState("");
+  const [itemStatus, setItemStatus] = useState<"draft" | "review" | "active">("draft");
+
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<string>("member");
-  const [librarySearch, setLibrarySearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedTier] = useState("business");
   const [showSSOConfig, setShowSSOConfig] = useState(false);
-  const [spendingLimits, setSpendingLimits] = useState({
-    manager: 50000,
-    member: 10000,
-  });
+  const [spendingLimits, setSpendingLimits] = useState({ manager: 50000, member: 10000 });
   const [notifyThresholds, setNotifyThresholds] = useState([50, 80, 100]);
 
-  const tabs: { key: TeamTab; label: string; icon: typeof Users }[] = [
+  const tabs_content = [
     { key: "dashboard", label: "Обзор", icon: BarChart3 },
     { key: "members", label: "Участники", icon: Users },
     { key: "library", label: "Библиотека", icon: FolderOpen },
@@ -132,24 +281,130 @@ export default function TeamAccountsPage() {
     { key: "settings", label: "Настройки", icon: Settings },
   ];
 
-  // Tier selection screen
+  // --- ФУНКЦИИ УПРАВЛЕНИЯ ДАННЫМИ ---
+
+  const handleCreateFolder = () => {
+    if (!folderName.trim()) return;
+    const newFolder: Folder = {
+      id: crypto.randomUUID(),
+      name: folderName.trim(),
+      parentId: currentFolderId === "root" ? null : currentFolderId,
+      ownerId: "me",
+      permissions: { "me": "admin" },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      itemCount: 0,
+      isPublic: false,
+    };
+    setFolders(prev => [...prev, newFolder]);
+    setFolderName("");
+    setShowFolderModal(false);
+  };
+
+  const handleDeleteFolder = (folderId: string) => {
+    // Удаляем папку
+    setFolders(prev => prev.filter(f => f.id !== folderId));
+    // Удаляем все элементы внутри папки
+    setItems(prev => prev.filter(i => i.folderId !== folderId));
+    // Если удалили текущую папку, переходим в корень
+    if (currentFolderId === folderId) setCurrentFolderId("root");
+  };
+
+  const handleRenameFolder = (folderId: string, newName: string) => {
+    setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name: newName } : f));
+  };
+
+  const openItemModal = (item?: TeamItem) => {
+    if (item) {
+      setEditingItem(item);
+      setItemTitle(item.title);
+      setItemDescription(item.description);
+      setItemContent(item.content);
+      setItemType(item.type);
+      setItemTags(item.tags.join(", "));
+      setItemStatus(item.status);
+    } else {
+      setEditingItem(null);
+      setItemTitle("");
+      setItemDescription("");
+      setItemContent("");
+      setItemType("prompt");
+      setItemTags("");
+      setItemStatus("draft");
+    }
+    setShowItemModal(true);
+  };
+
+  const handleSaveItem = () => {
+    if (!itemTitle.trim()) return;
+    
+    const itemData = {
+      title: itemTitle.trim(),
+      description: itemDescription.trim(),
+      content: itemContent,
+      type: itemType,
+      folderId: currentFolderId === "root" ? "f1" : currentFolderId, // Если в корне, кидаем в первую доступную папку
+      category: "Общее",
+      addedBy: "Вы",
+      tags: itemTags.split(",").map(t => t.trim()).filter(Boolean),
+      status: itemStatus,
+      isActive: true,
+      files: [],
+    };
+
+    if (editingItem) {
+      setItems(prev => prev.map(i => i.id === editingItem.id ? { ...i, ...itemData, updatedAt: new Date().toISOString() } : i));
+    } else {
+      const newItem: TeamItem = {
+        ...itemData,
+        id: crypto.randomUUID(),
+        addedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        version: "1.0",
+        usageCount: 0,
+      };
+      setItems(prev => [...prev, newItem]);
+      // Обновляем счетчик в папке
+      setFolders(prev => prev.map(f => f.id === newItem.folderId ? { ...f, itemCount: f.itemCount + 1 } : f));
+    }
+    
+    setShowItemModal(false);
+    setEditingItem(null);
+  };
+
+  const handleCopyContent = (content: string) => {
+    navigator.clipboard.writeText(content);
+  };
+
+  // Фильтрация элементов
+  const filteredItems = items.filter(item => {
+    if (currentFolderId !== "root" && item.folderId !== currentFolderId) return false;
+    if (contentFilter !== "all" && item.type !== contentFilter) return false;
+    if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase()) && 
+        !item.description.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !item.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))) {
+      return false;
+    }
+    return true;
+  });
+
+  const activeMembers = mockMembers.filter((m: any) => m.status === "active").length;
+  const totalSpending = mockMembers.reduce((s: number, m: any) => s + m.spending, 0);
+  const totalPrompts = items.filter(i => i.type === "prompt").length;
+  const totalSkills = items.filter(i => i.type === "skill").length;
+  const totalFiles = items.filter(i => i.type === "file").length;
+  const currentFolder = folders.find(f => f.id === currentFolderId);
+
+  // --- РЕНДЕРИНГ ---
+
   if (!hasTeam || showTierSelect) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-6">
         <h1 className="text-2xl font-bold mb-1">Командные аккаунты</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          Выберите тарифный план для вашей команды
-        </p>
+        <p className="text-sm text-muted-foreground mb-6">Выберите тарифный план для вашей команды</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {tiers.map((tier) => (
-            <div
-              key={tier.key}
-              className={`rounded-xl border p-6 flex flex-col ${
-                tier.key === "business"
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-card"
-              }`}
-            >
+            <div key={tier.key} className={`rounded-xl border p-6 flex flex-col ${tier.key === "business" ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
               <div className="flex items-center gap-2 mb-3">
                 <tier.icon className="h-5 w-5 text-primary" />
                 <h3 className="font-bold text-lg">{tier.name}</h3>
@@ -163,17 +418,7 @@ export default function TeamAccountsPage() {
                   </li>
                 ))}
               </ul>
-              <button
-                onClick={() => {
-                  setHasTeam(true);
-                  setShowTierSelect(false);
-                }}
-                className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  tier.key === "business"
-                    ? "gradient-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-              >
+              <button onClick={() => { setHasTeam(true); setShowTierSelect(false); }} className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors ${tier.key === "business" ? "gradient-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"}`}>
                 {tier.key === "enterprise" ? "Связаться" : "Выбрать"}
               </button>
             </div>
@@ -183,61 +428,272 @@ export default function TeamAccountsPage() {
     );
   }
 
-  const activeMembers = mockMembers.filter((m) => m.status === "active").length;
-  const totalSpending = mockMembers.reduce((s, m) => s + m.spending, 0);
-  const filteredMembers = mockMembers.filter(
-    (m) =>
-      !memberSearch.trim() ||
-      m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
-      m.email.toLowerCase().includes(memberSearch.toLowerCase())
-  );
-  const filteredPrompts = mockPrompts.filter(
-    (p) =>
-      !librarySearch.trim() ||
-      p.title.toLowerCase().includes(librarySearch.toLowerCase()) ||
-      p.folder.toLowerCase().includes(librarySearch.toLowerCase())
-  );
-  const recentActivity: {text: string; time: string; icon: typeof Users}[] = [];
-
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-bold">Командный аккаунт</h1>
-        <span className="text-xs px-2 py-1 rounded-full gradient-primary text-primary-foreground font-medium">
-          Business
-        </span>
+        <span className="text-xs px-2 py-1 rounded-full gradient-primary text-primary-foreground font-medium">Business</span>
       </div>
-      <p className="text-sm text-muted-foreground mb-6">
-        Управление командой и совместная работа с промптами
-      </p>
+      <p className="text-sm text-muted-foreground mb-6">Управление командой и совместная работа с промптами и скилами</p>
 
-      {/* Tabs */}
+      {/* Навигация по вкладкам */}
       <div className="flex gap-1 mb-6 overflow-x-auto pb-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.key
-                ? "gradient-primary text-primary-foreground"
-                : "bg-card border border-border text-muted-foreground hover:text-foreground"
-            }`}
-          >
+        {tabs_content.map((tab) => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key as TeamTab)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${activeTab === tab.key ? "gradient-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:text-foreground"}`}>
             <tab.icon className="h-4 w-4" />
             {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Dashboard Tab */}
+      {activeTab === "library" && (
+        <div className="space-y-4 animate-fade-in">
+          {/* Хлебные крошки и заголовок */}
+          <div className="flex items-center justify-between p-4 bg-card border border-border rounded-xl">
+            <div className="flex items-center gap-2 flex-1">
+              {currentFolderId !== "root" && (
+                <button onClick={() => setCurrentFolderId("root")} className="p-2 hover:bg-muted rounded-lg transition-colors" title="В корень">
+                  <Home className="h-4 w-4" />
+                </button>
+              )}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Библиотека</span>
+                {currentFolderId !== "root" && currentFolder && (
+                  <>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium flex items-center gap-2">
+                      <Folder className="h-4 w-4 text-primary" />
+                      {currentFolder.name}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            <button onClick={() => openItemModal()} className="flex items-center gap-2 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+              <Plus className="h-4 w-4" /> Добавить элемент
+            </button>
+          </div>
+
+          {/* Поиск и фильтры */}
+          <div className="flex gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Поиск в библиотеке..." className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            </div>
+            <div className="flex bg-muted rounded-lg p-0.5">
+              {[{ key: "all", label: "Все" }, { key: "prompt", label: "Промты", icon: <FileText className="h-3 w-3" /> }, { key: "skill", label: "Скилы", icon: <Zap className="h-3 w-3" /> }, { key: "file", label: "Файлы", icon: <File className="h-3 w-3" /> }].map((ct) => (
+                <button key={ct.key} onClick={() => setContentFilter(ct.key as ContentType)} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${contentFilter === ct.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                  {ct.icon}{ct.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowFolderModal(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/80 transition-colors">
+              <FolderPlus className="h-4 w-4" /> Папка
+            </button>
+          </div>
+
+          {/* СПИСОК ПАПЕК (Только если мы в корне) */}
+          {currentFolderId === "root" && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {folders.filter(f => f.parentId === null && f.id !== "root").map(folder => {
+                const folderItems = items.filter(i => i.folderId === folder.id);
+                return (
+                  <div 
+                    key={folder.id} 
+                    onClick={() => setCurrentFolderId(folder.id)} 
+                    className="p-4 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-md transition-all text-left group cursor-pointer relative"
+                  >
+                    {/* Меню папки (ИСПРАВЛЕННОЕ) */}
+                    <div className="absolute top-3 right-3 z-10">
+                      <FolderContextMenu 
+                        folder={folder} 
+                        onDelete={handleDeleteFolder} 
+                        onRename={handleRenameFolder} 
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between mb-2 pr-6"> 
+                      <Folder className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
+                    </div>
+                    
+                    <h3 className="font-medium text-sm mb-1 truncate">{folder.name}</h3>
+                    <p className="text-xs text-muted-foreground">{folderItems.length} элементов</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* СОДЕРЖИМОЕ ПАПКИ (Список элементов) */}
+          <div className="space-y-2">
+            {filteredItems.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed border-border rounded-xl bg-muted/20">
+                <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <p className="text-sm font-medium text-foreground">
+                  {currentFolderId === "root" ? "Библиотека пуста" : `Папка "${currentFolder?.name}" пуста`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 mb-4">Создайте первый элемент или добавьте его из Market</p>
+                <button onClick={() => openItemModal()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                  + Создать элемент
+                </button>
+              </div>
+            ) : (
+              filteredItems.map((item) => (
+                <div key={item.id} className="rounded-xl border border-border bg-card p-4 flex items-start gap-4 hover:shadow-md transition-shadow">
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${contentColors[item.type]}`}>
+                    {contentIcons[item.type]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <h3 className="font-medium text-sm mb-1">{item.title}</h3>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{item.description || "Нет описания"}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {item.type === "skill" && (
+                          <button onClick={() => setItems(prev => prev.map(i => i.id === item.id ? { ...i, isActive: !i.isActive } : i))} className={`p-1.5 rounded-lg transition-colors ${item.isActive ? "text-green-600 hover:bg-green-50" : "text-gray-400 hover:bg-gray-50"}`}>
+                            {item.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+                          </button>
+                        )}
+                        <button onClick={() => handleCopyContent(item.content)} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground" title="Копировать">
+                          <CopyIcon className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => openItemModal(item)} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground" title="Редактировать">
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => setItems(prev => prev.filter(i => i.id !== item.id))} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-destructive" title="Удалить">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${contentColors[item.type]}`}>{contentLabels[item.type]}</span>
+                      {item.tags.map((tag, i) => <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">#{tag}</span>)}
+                      <span className="text-[10px] text-muted-foreground">v{item.version}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${item.status === "active" ? "bg-green-100 text-green-700" : item.status === "review" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-700"}`}>
+                        {item.status === "active" ? "Активен" : item.status === "review" ? "На проверке" : "Черновик"}
+                      </span>
+                    </div>
+                    {item.type === "prompt" && item.content && (
+                      <div className="mt-2 p-2 bg-muted rounded-lg text-xs font-mono text-muted-foreground max-h-20 overflow-hidden">
+                        {item.content.slice(0, 200)}{item.content.length > 200 ? "..." : ""}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно создания папки */}
+      {showFolderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg">Создать папку</h3>
+              <button onClick={() => setShowFolderModal(false)} className="p-1 rounded-lg hover:bg-muted"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Название папки</label>
+                <input type="text" value={folderName} onChange={(e) => setFolderName(e.target.value)} placeholder="Например: Маркетинг Q3" className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm" autoFocus onKeyDown={(e) => e.key === "Enter" && handleCreateFolder()} />
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => setShowFolderModal(false)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Отмена</button>
+                <button onClick={handleCreateFolder} disabled={!folderName.trim()} className="flex-1 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium disabled:opacity-50">Создать</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно создания/редактирования элемента */}
+      {showItemModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            {/* Фиксированная шапка */}
+            <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
+              <h3 className="font-bold text-xl">{editingItem ? "Редактировать элемент" : "Добавить элемент"}</h3>
+              <button onClick={() => setShowItemModal(false)} className="p-1 rounded-lg hover:bg-muted"><X className="h-5 w-5" /></button>
+            </div>
+            
+            {/* Скроллящийся контент */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-2 block">Тип элемента</label>
+                <div className="flex gap-2">
+                  <button onClick={() => setItemType("prompt")} className={`flex-1 py-3 rounded-lg text-sm font-medium border transition-all ${itemType === "prompt" ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                    <FileText className="h-4 w-4 mx-auto mb-1" /> Промпт
+                  </button>
+                  <button onClick={() => setItemType("skill")} className={`flex-1 py-3 rounded-lg text-sm font-medium border transition-all ${itemType === "skill" ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                    <Zap className="h-4 w-4 mx-auto mb-1" /> Скил
+                  </button>
+                  <button onClick={() => setItemType("file")} className={`flex-1 py-3 rounded-lg text-sm font-medium border transition-all ${itemType === "file" ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                    <File className="h-4 w-4 mx-auto mb-1" /> Файл
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground font-medium">Название *</label>
+                <input type="text" value={itemTitle} onChange={(e) => setItemTitle(e.target.value)} placeholder={itemType === "prompt" ? "Например: Промпт для генерации заголовков" : "Название"} className="w-full mt-1 px-3 py-2.5 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" autoFocus />
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground font-medium">Описание</label>
+                <textarea value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} placeholder="Опишите назначение элемента..." rows={2} className="w-full mt-1 px-3 py-2.5 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+              </div>
+
+              {itemType === "prompt" && (
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium">Текст промпта *</label>
+                  <textarea value={itemContent} onChange={(e) => setItemContent(e.target.value)} placeholder="Введите текст промпта..." rows={6} className="w-full mt-1 px-3 py-2.5 rounded-lg bg-background border border-border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+                  <p className="text-[10px] text-muted-foreground mt-1">Используйте {'{variable}'} для переменных</p>
+                </div>
+              )}
+
+              {itemType === "skill" && (
+                <div className="space-y-3 p-4 bg-muted rounded-lg">
+                  <h4 className="text-sm font-medium">Настройки скила</h4>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Триггеры (через запятую)</label>
+                    <input type="text" placeholder="Новая заявка, Обновление статуса" className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Интеграции (через запятую)</label>
+                    <input type="text" placeholder="Telegram, CRM, Notion" className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm" />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs text-muted-foreground font-medium">Теги (через запятую)</label>
+                <input type="text" value={itemTags} onChange={(e) => setItemTags(e.target.value)} placeholder="маркетинг, заголовки, генерация" className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+            </div>
+
+            {/* Фиксированный подвал */}
+            <div className="flex gap-2 p-6 border-t border-border flex-shrink-0">
+              <button onClick={() => setShowItemModal(false)} className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Отмена</button>
+              <button onClick={handleSaveItem} disabled={!itemTitle.trim() || (itemType === "prompt" && !itemContent.trim())} className="flex-1 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                <Save className="h-4 w-4" />
+                {editingItem ? "Сохранить изменения" : "Создать элемент"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab === "dashboard" && (
         <div className="space-y-6 animate-fade-in">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: "Участников", value: `${activeMembers}/${tiers[1].maxMembers}`, icon: Users },
-              { label: "Промптов в библиотеке", value: mockPrompts.length.toString(), icon: FolderOpen },
+              { label: "Промптов", value: totalPrompts.toString(), icon: FileText },
+              { label: "Скилов", value: totalSkills.toString(), icon: Zap },
               { label: "Расход за месяц", value: `${totalSpending.toLocaleString()} ₽`, icon: DollarSign },
-              { label: "Бюджет остаток", value: `${(50000 - totalSpending).toLocaleString()} ₽`, icon: BarChart3 },
             ].map((stat) => (
               <div key={stat.label} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -248,527 +704,34 @@ export default function TeamAccountsPage() {
               </div>
             ))}
           </div>
-
-          {/* Recent activity */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <h3 className="font-semibold mb-3">Последняя активность</h3>
-            <div className="space-y-3">
-              {recentActivity.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground py-8">Нет активности</p>
-              ) : (
-                recentActivity.map((item, i) => (
-                  <div key={i} className="flex items-start gap-3 text-sm">
-                    <item.icon className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <div className="flex-1">
-                      <p>{item.text}</p>
-                      <p className="text-xs text-muted-foreground">{item.time}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Quick actions */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium"
-            >
-              <UserPlus className="h-4 w-4" />
-              Пригласить участника
-            </button>
-            <button
-              onClick={() => setActiveTab("library")}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium"
-            >
-              <FolderOpen className="h-4 w-4" />
-              Создать папку
-            </button>
-            <button
-              onClick={() => setActiveTab("billing")}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium"
-            >
-              <BarChart3 className="h-4 w-4" />
-              Отчёт по расходам
-            </button>
-          </div>
         </div>
       )}
 
-      {/* Members Tab */}
       {activeTab === "members" && (
         <div className="space-y-4 animate-fade-in">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={memberSearch}
-                onChange={(e) => setMemberSearch(e.target.value)}
-                placeholder="Поиск участников..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
+              <input type="text" value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} placeholder="Поиск участников..." className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-medium"
-            >
-              <UserPlus className="h-4 w-4" />
-              Пригласить
+            <button onClick={() => setShowInviteModal(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-medium">
+              <UserPlus className="h-4 w-4" /> Пригласить
             </button>
           </div>
-
-          <div className="space-y-2">
-            {filteredMembers.map((member) => (
-              <div
-                key={member.id}
-                className="rounded-xl border border-border bg-card p-4 flex items-center gap-4"
-              >
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                  {member.name[0]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm truncate">{member.name}</p>
-                    <span className={`text-xs font-medium ${roleColors[member.role]}`}>
-                      {roleLabels[member.role]}
-                    </span>
-                    {member.status === "invited" && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-warning/10 text-warning">
-                        Приглашён
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">{member.email}</p>
-                </div>
-                <div className="hidden md:block text-right">
-                  <p className="text-sm font-medium">{member.spending.toLocaleString()} ₽</p>
-                  <p className="text-xs text-muted-foreground">
-                    {member.lastActive ? `Активен: ${member.lastActive}` : "—"}
-                  </p>
-                </div>
-                <div className="flex gap-1">
-                  <button className="p-2 rounded-lg hover:bg-muted transition-colors" title="Изменить роль">
-                    <Edit className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                  {member.role !== "admin" && (
-                    <button className="p-2 rounded-lg hover:bg-destructive/10 transition-colors" title="Удалить">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
-      {/* Library Tab */}
-      {activeTab === "library" && (
-        <div className="space-y-4 animate-fade-in">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={librarySearch}
-                onChange={(e) => setLibrarySearch(e.target.value)}
-                placeholder="Поиск в библиотеке..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
-            <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium">
-              <Plus className="h-4 w-4" />
-              Папка
-            </button>
-          </div>
+      {activeTab === "billing" && <div className="text-center py-12 text-muted-foreground">Раздел в разработке</div>}
+      {activeTab === "settings" && <div className="text-center py-12 text-muted-foreground">Раздел в разработке</div>}
 
-          {/* Folders */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {["Все", "Маркетинг", "Дизайн", "E-commerce", "Разработка"].map((folder) => (
-              <button
-                key={folder}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground whitespace-nowrap"
-              >
-                {folder}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            {filteredPrompts.map((prompt) => (
-              <div
-                key={prompt.id}
-                className="rounded-xl border border-border bg-card p-4 flex items-center gap-4"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm">{prompt.title}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                      {prompt.category}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      📁 {prompt.folder}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Добавил: {prompt.addedBy}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-right hidden md:block">
-                  <p className="text-sm font-medium">{prompt.usageCount} использований</p>
-                  <p className="text-xs text-muted-foreground">{prompt.addedAt}</p>
-                </div>
-                <div className="flex gap-1">
-                  <button className="p-2 rounded-lg hover:bg-muted transition-colors" title="Комментарии">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                  <button className="p-2 rounded-lg hover:bg-muted transition-colors" title="История версий">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Billing Tab */}
-      {activeTab === "billing" && (
-        <div className="space-y-6 animate-fade-in">
-          {/* Spending by member */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <h3 className="font-semibold mb-3">Расходы по участникам (текущий месяц)</h3>
-            <div className="space-y-3">
-              {mockMembers
-                .filter((m) => m.spending > 0)
-                .sort((a, b) => b.spending - a.spending)
-                .map((member) => (
-                  <div key={member.id} className="flex items-center gap-3">
-                    <p className="text-sm w-36 truncate">{member.name}</p>
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full gradient-primary rounded-full"
-                        style={{
-                          width: `${(member.spending / Math.max(...mockMembers.map((m) => m.spending))) * 100}%`,
-                        }}
-                      />
-                    </div>
-                    <p className="text-sm font-medium w-24 text-right">
-                      {member.spending.toLocaleString()} ₽
-                    </p>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* Spending limits */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <h3 className="font-semibold mb-3">Лимиты расходов</h3>
-            <div className="space-y-3">
-              {[
-                { role: "manager", label: "Менеджер" },
-                { role: "member", label: "Участник" },
-              ].map((item) => (
-                <div key={item.role} className="flex items-center gap-3">
-                  <p className="text-sm w-28">{item.label}</p>
-                  <input
-                    type="number"
-                    value={spendingLimits[item.role as keyof typeof spendingLimits]}
-                    onChange={(e) =>
-                      setSpendingLimits((prev) => ({
-                        ...prev,
-                        [item.role]: Number(e.target.value),
-                      }))
-                    }
-                    className="w-32 px-3 py-1.5 rounded-lg bg-background border border-border text-sm"
-                  />
-                  <span className="text-xs text-muted-foreground">₽/мес</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-2 mt-2">
-                <Bell className="h-4 w-4 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">
-                  Уведомления при {notifyThresholds.join("%, ")}% бюджета
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Invoices */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <h3 className="font-semibold mb-3">Счета</h3>
-            <div className="space-y-2">
-              {mockInvoices.map((inv) => (
-                <div
-                  key={inv.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-border"
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{inv.id}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {inv.date} · {inv.items} позиций
-                    </p>
-                  </div>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${
-                      inv.status === "paid"
-                        ? "bg-success/10 text-success"
-                        : inv.status === "pending"
-                        ? "bg-warning/10 text-warning"
-                        : "bg-destructive/10 text-destructive"
-                    }`}
-                  >
-                    {inv.status === "paid" ? "Оплачен" : inv.status === "pending" ? "Ожидает" : "Ошибка"}
-                  </span>
-                  <p className="text-sm font-bold">{inv.amount.toLocaleString()} ₽</p>
-                  <button className="p-2 rounded-lg hover:bg-muted transition-colors" title="Скачать PDF">
-                    <Download className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Settings Tab */}
-      {activeTab === "settings" && (
-        <div className="space-y-4 animate-fade-in">
-          {/* Team info */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <h3 className="font-semibold mb-3">Информация о команде</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground">Название команды</label>
-                <input
-                  type="text"
-                  defaultValue="DigitalAgency Pro"
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Сайт компании</label>
-                <input
-                  type="text"
-                  defaultValue="https://digitalagency.ru"
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Отрасль</label>
-                <select className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm">
-                  <option>Маркетинг и реклама</option>
-                  <option>IT и разработка</option>
-                  <option>Образование</option>
-                  <option>E-commerce</option>
-                  <option>Медиа и контент</option>
-                </select>
-              </div>
-              <button className="px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium">
-                Сохранить
-              </button>
-            </div>
-          </div>
-
-          {/* SSO */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Lock className="h-4 w-4 text-primary" />
-                <h3 className="font-semibold">Single Sign-On (SSO)</h3>
-              </div>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                Business+
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground mb-3">
-              Интеграция с корпоративными провайдерами идентификации
-            </p>
-            <div className="space-y-2">
-              {["Azure Active Directory", "Google Workspace", "Okta", "SAML 2.0 (Custom)"].map(
-                (provider) => (
-                  <div
-                    key={provider}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Link2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{provider}</span>
-                    </div>
-                    <button
-                      onClick={() => setShowSSOConfig(true)}
-                      className="text-xs px-3 py-1 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                    >
-                      Настроить
-                    </button>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-
-          {/* Integrations */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <h3 className="font-semibold mb-3">Интеграции</h3>
-            <div className="space-y-2">
-              {[
-                { name: "Slack", desc: "Уведомления о покупках и активности", connected: true },
-                { name: "Microsoft Teams", desc: "Уведомления в канал команды", connected: false },
-              ].map((int) => (
-                <div
-                  key={int.name}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{int.name}</p>
-                    <p className="text-xs text-muted-foreground">{int.desc}</p>
-                  </div>
-                  <button
-                    className={`text-xs px-3 py-1 rounded-lg ${
-                      int.connected
-                        ? "bg-success/10 text-success"
-                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                    }`}
-                  >
-                    {int.connected ? "Подключено" : "Подключить"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Danger zone */}
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-            <h3 className="font-semibold text-destructive mb-2">Опасная зона</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Эти действия необратимы. Будьте осторожны.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowTierSelect(true)}
-                className="text-xs px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted"
-              >
-                Сменить тариф
-              </button>
-              <button className="text-xs px-3 py-1.5 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10">
-                Удалить команду
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Invite modal */}
       {showInviteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg">Пригласить участника</h3>
-              <button onClick={() => setShowInviteModal(false)} className="p-1 rounded-lg hover:bg-muted">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+            <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-lg">Пригласить участника</h3><button onClick={() => setShowInviteModal(false)} className="p-1 rounded-lg hover:bg-muted"><X className="h-5 w-5" /></button></div>
             <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground">Email</label>
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="colleague@company.ru"
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Роль</label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"
-                >
-                  <option value="manager">Менеджер</option>
-                  <option value="member">Участник</option>
-                  <option value="viewer">Наблюдатель</option>
-                </select>
-              </div>
-              <div className="text-xs text-muted-foreground p-3 rounded-lg bg-muted">
-                <p className="font-medium mb-1">Права роли «{roleLabels[inviteRole]}»:</p>
-                {inviteRole === "manager" && <p>Управление участниками, покупки, отчёты по проектам</p>}
-                {inviteRole === "member" && <p>Покупка промптов, доступ к библиотеке, загрузка промптов</p>}
-                {inviteRole === "viewer" && <p>Просмотр библиотеки, комментарии</p>}
-              </div>
-              <button
-                onClick={() => {
-                  setShowInviteModal(false);
-                  setInviteEmail("");
-                }}
-                className="w-full py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium"
-              >
-                Отправить приглашение
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SSO config modal */}
-      {showSSOConfig && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg">Настройка SSO</h3>
-              <button onClick={() => setShowSSOConfig(false)} className="p-1 rounded-lg hover:bg-muted">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <div className="p-3 rounded-lg bg-muted text-sm">
-                <p className="font-medium mb-1">Шаг 1: Скачайте метаданные</p>
-                <p className="text-muted-foreground text-xs mb-2">
-                  Скачайте XML-файл метаданных и загрузите его в ваш провайдер идентификации
-                </p>
-                <button className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-card border border-border">
-                  <Download className="h-3 w-3" />
-                  Скачать metadata.xml
-                </button>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Entity ID</label>
-                <input
-                  type="text"
-                  placeholder="https://your-idp.com/entity-id"
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">SSO URL</label>
-                <input
-                  type="text"
-                  placeholder="https://your-idp.com/sso"
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Сертификат (X.509)</label>
-                <textarea
-                  placeholder="-----BEGIN CERTIFICATE-----"
-                  rows={3}
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button className="flex-1 py-2 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium">
-                  Тест подключения
-                </button>
-                <button
-                  onClick={() => setShowSSOConfig(false)}
-                  className="flex-1 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium"
-                >
-                  Сохранить
-                </button>
-              </div>
+              <div><label className="text-xs text-muted-foreground">Email</label><input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="colleague@company.ru" className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm" /></div>
+              <div><label className="text-xs text-muted-foreground">Роль</label><select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-sm"><option value="manager">Менеджер</option><option value="member">Участник</option><option value="viewer">Наблюдатель</option></select></div>
+              <button onClick={() => { setShowInviteModal(false); setInviteEmail(""); }} className="w-full py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium">Отправить приглашение</button>
             </div>
           </div>
         </div>

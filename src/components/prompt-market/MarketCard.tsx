@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, ShoppingCart, Eye, Star, Play } from "lucide-react";
+import { Heart, ShoppingCart, Eye, Star, Play, Zap, FileText } from "lucide-react";
 
 export interface MarketCardData {
   id: string;
@@ -17,6 +17,8 @@ export interface MarketCardData {
   views: number;
   tags: string[];
   createdAt: string;
+  type?: "prompt" | "skill"; // 🔹 НОВОЕ: тип контента
+  version?: string; // 🔹 НОВОЕ: версия для скилов
 }
 
 interface MarketCardProps {
@@ -30,6 +32,7 @@ export function MarketCard({ data, onLike, onAddToCart, onQuickView }: MarketCar
   const [liked, setLiked] = useState(false);
   const isFree = data.price === null || data.price === 0;
   const hasDiscount = data.originalPrice && data.originalPrice > (data.price || 0);
+  const isSkill = data.type === "skill"; // 🔹 Определяем тип
 
   const handleLike = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -45,7 +48,21 @@ export function MarketCard({ data, onLike, onAddToCart, onQuickView }: MarketCar
   };
 
   return (
-    <div className="bg-card rounded-2xl border border-border shadow-card hover:shadow-card-hover transition-all duration-300 overflow-hidden group">
+    <div className="bg-card rounded-2xl border border-border shadow-card hover:shadow-card-hover transition-all duration-300 overflow-hidden group relative">
+      
+      {/* 🔹 Бейдж типа контента (в углу) */}
+      <div className="absolute top-2 left-2 z-10">
+        {isSkill ? (
+          <span className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full backdrop-blur-sm">
+            <Zap className="h-3 w-3" /> SKILL
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 text-[10px] rounded-full backdrop-blur-sm">
+            <FileText className="h-3 w-3" /> PROMPT
+          </span>
+        )}
+      </div>
+
       {/* Media preview */}
       <div className="relative aspect-video bg-muted overflow-hidden">
         <Link to={`/prompt/${data.id}`}>
@@ -59,6 +76,7 @@ export function MarketCard({ data, onLike, onAddToCart, onQuickView }: MarketCar
             <Play className="h-4 w-4 text-foreground" />
           </div>
         </button>
+        
         {/* Price badge */}
         <div className="absolute top-2 right-2">
           {data.subscriptionOnly ? (
@@ -83,13 +101,22 @@ export function MarketCard({ data, onLike, onAddToCart, onQuickView }: MarketCar
       <div className="p-3.5 space-y-2.5">
         {/* Title */}
         <Link to={`/prompt/${data.id}`}>
-          <h3 className="text-sm font-semibold leading-tight line-clamp-2 hover:text-primary transition-colors">{data.title}</h3>
+          <h3 className="text-sm font-semibold leading-tight line-clamp-2 hover:text-primary transition-colors pr-16">
+            {data.title}
+          </h3>
         </Link>
 
-        {/* Author */}
-        <Link to={`/profile/${data.authorId}`} className="text-xs text-muted-foreground hover:text-primary transition-colors">
-          @{data.author}
-        </Link>
+        {/* Author + Version for skills */}
+        <div className="flex items-center justify-between">
+          <Link to={`/profile/${data.authorId}`} className="text-xs text-muted-foreground hover:text-primary transition-colors">
+            @{data.author}
+          </Link>
+          {isSkill && data.version && (
+            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+              v{data.version}
+            </span>
+          )}
+        </div>
 
         {/* Rating */}
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -105,7 +132,7 @@ export function MarketCard({ data, onLike, onAddToCart, onQuickView }: MarketCar
               to={`/prompt/${data.id}`}
               className="flex-1 py-2 rounded-lg gradient-primary text-primary-foreground text-xs font-semibold text-center hover:opacity-90 transition-opacity"
             >
-              Открыть
+              {isSkill ? "Активировать" : "Открыть"}
             </Link>
           ) : (
             <button
@@ -113,7 +140,7 @@ export function MarketCard({ data, onLike, onAddToCart, onQuickView }: MarketCar
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg gradient-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
             >
               <ShoppingCart className="h-3.5 w-3.5" />
-              {data.subscriptionOnly ? "Подписка" : "В корзину"}
+              {data.subscriptionOnly ? "Подписка" : isSkill ? "Купить скил" : "В корзину"}
             </button>
           )}
           <button

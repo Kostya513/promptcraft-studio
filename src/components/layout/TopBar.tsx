@@ -136,7 +136,8 @@ export function TopBar() {
                   </div>
                 ))}
               </div>
-              <button onClick={() => { navigate("/notifications"); setShowNotifications(false); }} className="w-full py-2.5 text-center text-xs text-primary font-medium hover:bg-muted transition-colors border-t border-border">
+              {/* ✅ ИЗМЕНЕНО: Ссылка на настройки уведомлений */}
+              <button onClick={() => { navigate("/settings?tab=Уведомления"); setShowNotifications(false); }} className="w-full py-2.5 text-center text-xs text-primary font-medium hover:bg-muted transition-colors border-t border-border">
                 Все уведомления
               </button>
             </div>

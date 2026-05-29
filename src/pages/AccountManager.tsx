@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { AccountDashboard } from "@/components/account-manager/AccountDashboard";
-import { AccountProfiles } from "@/components/account-manager/AccountProfiles";
-import { AccountsList } from "@/components/account-manager/AccountsList";
-import { AccountSecurity } from "@/components/account-manager/AccountSecurity";
-import { SubscriptionsCalendar } from "@/components/account-manager/SubscriptionsCalendar";
-import { MasterPasswordModal } from "@/components/account-manager/MasterPasswordModal";
+import { AccountDashboard } from "../components/account-manager/AccountDashboard";
+import { AccountProfiles } from "../components/account-manager/AccountProfiles";
+import { AccountsList } from "../components/account-manager/AccountsList";
+import { AccountSecurity } from "../components/account-manager/AccountSecurity";
+import { SubscriptionsCalendar } from "../components/account-manager/SubscriptionsCalendar";
+import { AccountSkillsIntegrations } from "../components/account-manager/AccountSkillsIntegrations";
+import { MasterPasswordModal } from "../components/account-manager/MasterPasswordModal";
 import { Lock } from "lucide-react";
 
 const tabs = [
@@ -12,6 +13,7 @@ const tabs = [
   { key: "profiles", label: "Профили" },
   { key: "accounts", label: "Аккаунты" },
   { key: "subscriptions", label: "Подписки" },
+  { key: "skills", label: "⚡ Скилы" },
   { key: "security", label: "Безопасность" },
 ];
 
@@ -122,6 +124,7 @@ export default function AccountManager() {
           />
         )}
         {activeTab === "subscriptions" && <SubscriptionsCalendar />}
+        {activeTab === "skills" && <AccountSkillsIntegrations cryptoKey={cryptoKey} />}
         {activeTab === "security" && <AccountSecurity />}
       </div>
     </>

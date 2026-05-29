@@ -22,8 +22,8 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' })); // Увеличил лимит для видео
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Request logging
 app.use((_req: Request, _res: Response, next: NextFunction) => {
@@ -75,15 +75,17 @@ import oauthRoutes from './routes/oauth.js';
 import promptsRoutes from './routes/prompts.js';
 import usersRoutes from './routes/users.js';
 import aiRoutes from './routes/ai.js';
+import postsRoutes from './routes/posts.js'; // ✅ ДОБАВЛЕНО
 
 app.use('/api/auth', authRoutes);
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/prompts', promptsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/posts', postsRoutes); // ✅ ДОБАВЛЕНО
 
 // ============================================
-// SERVE UPLOADED FILES (с правильными CORS заголовками)
+// SERVE UPLOADED FILES
 // ============================================
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   setHeaders: (res: Response, filePath: string) => {
@@ -115,7 +117,11 @@ app.use((req: Request, res: Response) => {
       'GET /api/users/profile',
       'GET /api/prompts',
       'POST /api/prompts',
-      'GET /api/users/profile'
+      'GET /api/posts',
+      'POST /api/posts',
+      'DELETE /api/posts/:id',
+      'PUT /api/posts/:id/like',
+      'PUT /api/posts/:id/share'
     ]
   });
 });
@@ -156,7 +162,11 @@ app.listen(PORT, () => {
   console.log('║  • GET  /api/users/profile                                ║');
   console.log('║  • GET  /api/prompts                                      ║');
   console.log('║  • POST /api/prompts                                      ║');
-  console.log('║  • GET  /api/users/profile                                ║');
+  console.log('║  • GET  /api/posts                                        ║');
+  console.log('║  • POST /api/posts                                        ║');
+  console.log('║  • DELETE /api/posts/:id                                  ║');
+  console.log('║  • PUT  /api/posts/:id/like                               ║');
+  console.log('║  • PUT  /api/posts/:id/share                              ║');
   console.log('╚═══════════════════════════════════════════════════════════╝');
   console.log('');
 });

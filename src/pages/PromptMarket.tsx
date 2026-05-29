@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Search, SlidersHorizontal, ShoppingCart } from "lucide-react";
+import { Search, SlidersHorizontal, ShoppingCart, Zap, FileText } from "lucide-react";
 import { FilterModal } from "@/components/prompt-market/FilterModal";
 import { MarketCard, type MarketCardData } from "@/components/prompt-market/MarketCard";
 import { QuickViewModal } from "@/components/prompt-market/QuickViewModal";
 import { CartPanel, type CartItem } from "@/components/prompt-market/CartPanel";
 
 type SortTab = "new" | "popular" | "rating" | "subscription" | "place";
+type ContentType = "all" | "prompt" | "skill"; // 🔹 НОВОЕ
 
 const tabLabels: { key: SortTab; label: string }[] = [
   { key: "new", label: "Новые" },
@@ -23,7 +24,7 @@ const CACHE_KEYS = {
   DEFAULT_EXPIRY: 300000, // 5 минут
 };
 
-// ✅ OPTIMIZATION: Утилита для работы с кэшем (строго типизирована)
+// ✅ OPTIMIZATION: Утилита для работы с кэшем
 const CacheUtil = {
   get<T>(key: string): T | null {
     try {
@@ -76,9 +77,9 @@ const CacheUtil = {
 const generateMockCards = (_page: number): MarketCardData[] => [];
 
 export default function PromptMarket() {
-  // ✅ Явная типизация всех состояний для строгого режима TS
   const [query, setQuery] = useState<string>("");
   const [activeTab, setActiveTab] = useState<SortTab>("new");
+  const [contentType, setContentType] = useState<ContentType>("all"); // 🔹 НОВОЕ
   const [filterOpen, setFilterOpen] = useState<boolean>(false);
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
   const [quickViewItem, setQuickViewItem] = useState<MarketCardData | null>(null);
@@ -199,7 +200,8 @@ export default function PromptMarket() {
 
   const totalFilterCount = Object.values(selectedFilters).reduce((sum, arr) => sum + arr.length, 0);
 
-  const filteredCards = useMemo(() => {
+  // 🔹 Фильтрация по поиску
+  const searchedCards = useMemo(() => {
     if (!query.trim()) return cards;
     const q = query.toLowerCase();
     return cards.filter((c) => {
@@ -209,14 +211,21 @@ export default function PromptMarket() {
     });
   }, [cards, query]);
 
+  // 🔹 Фильтрация по типу контента (промт/скил)
+  const typeFilteredCards = useMemo(() => {
+    if (contentType === "all") return searchedCards;
+    return searchedCards.filter((c) => c.type === contentType);
+  }, [searchedCards, contentType]);
+
+  // 🔹 Сортировка
   const sortedCards = useMemo(() => {
-    return [...filteredCards].sort((a, b) => {
+    return [...typeFilteredCards].sort((a, b) => {
       if (activeTab === "new") return b.createdAt.localeCompare(a.createdAt);
       if (activeTab === "popular") return b.views - a.views;
       if (activeTab === "rating") return b.rating - a.rating;
       return 0;
     });
-  }, [filteredCards, activeTab]);
+  }, [typeFilteredCards, activeTab]);
 
   if (activeTab === "place") {
     window.location.href = "/publish";
@@ -225,7 +234,7 @@ export default function PromptMarket() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      {/* ✅ Заголовок без кнопки "Обновить" */}
+      {/* Заголовок */}
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-2xl font-bold">Prompt Market</h1>
       </div>
@@ -239,7 +248,7 @@ export default function PromptMarket() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск промптов, моделей, задач..."
+            placeholder="Поиск промптов, скилов, моделей..."
             className="w-full pl-10 pr-4 py-3 rounded-xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
@@ -267,7 +276,29 @@ export default function PromptMarket() {
         </button>
       </div>
 
-      {/* Tabs */}
+      {/* 🔹 Фильтр типа контента: [Все] [Промты] [Скилы] */}
+      <div className="flex gap-1 mb-4 overflow-x-auto pb-1">
+        {[
+          { key: "all", label: "Все", icon: null },
+          { key: "prompt", label: "Промты", icon: <FileText className="h-3.5 w-3.5" /> },
+          { key: "skill", label: "Скилы", icon: <Zap className="h-3.5 w-3.5" /> },
+        ].map((ct) => (
+          <button
+            key={ct.key}
+            onClick={() => setContentType(ct.key as ContentType)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              contentType === ct.key
+                ? "bg-primary/10 text-primary border border-primary/30"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {ct.icon}
+            {ct.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tabs сортировки */}
       <div className="flex gap-1 mb-6 overflow-x-auto pb-1">
         {tabLabels.map((tab) => (
           <button
@@ -302,9 +333,15 @@ export default function PromptMarket() {
           />
         )) : !loading ? (
           <div className="col-span-full text-center py-12">
-            <p className="text-muted-foreground mb-4">Пока нет промтов. Станьте первым автором!</p>
+            <p className="text-muted-foreground mb-4">
+              {contentType === "skill" 
+                ? "Пока нет скилов. Создайте первый в Studio!" 
+                : contentType === "prompt"
+                ? "Пока нет промтов. Станьте первым автором!"
+                : "Пока нет контента. Опубликуйте первый промт или скил!"}
+            </p>
             <a href="/publish" className="px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium">
-              Опубликовать промт
+              Опубликовать
             </a>
           </div>
         ) : null}
@@ -319,7 +356,7 @@ export default function PromptMarket() {
           </div>
         )}
         {!hasMore && cards.length > 0 && (
-          <p className="text-xs text-muted-foreground">Все промты загружены</p>
+          <p className="text-xs text-muted-foreground">Все загружено</p>
         )}
       </div>
 

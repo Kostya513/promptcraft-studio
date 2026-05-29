@@ -2,12 +2,13 @@ import { Link } from "react-router-dom";
 import {
   FolderHeart, Store, Settings, Zap, Vault,
   Heart, HelpCircle, Users, Gift, Building2, FileText,
-  Menu, ChevronLeft
+  Menu, ChevronLeft, BookOpen
 } from "lucide-react";
 
 const navItems = [
   { title: "Меню", path: "#toggle", icon: Menu, isToggle: true },
   { title: "Prompt-Market", path: "/market", icon: Store },
+  { title: "Библиотека", path: "/library", icon: BookOpen },
   { title: "Студия", path: "/studio", icon: FolderHeart },
   { title: "Менеджер аккаунтов", path: "/accounts", icon: Vault },
   { title: "Заказные промпты", path: "/custom-orders", icon: FileText },

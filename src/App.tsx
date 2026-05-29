@@ -34,11 +34,11 @@ import CreatePost from "./pages/CreatePost";
 import PublishPromptPage from "./components/prompt-market/PublishPromptPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
-import NotificationsPage from "./pages/NotificationsPage";
 import NotFound from "./pages/NotFound";
 import ReferralPage from "./pages/ReferralPage";
 import TeamAccountsPage from "./pages/TeamAccountsPage";
 import CustomOrdersPage from "./pages/CustomOrdersPage";
+import LibraryPage from "./pages/LibraryPage"; // 🔹 НОВЫЙ ИМПОРТ
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -69,6 +69,7 @@ const App = () => (
                   <Route path="/publish" element={<PublishPromptPage />} />
                   <Route element={<AppLayout />}>
                     <Route path="/market" element={<PromptMarket />} />
+                    <Route path="/library" element={<ProtectedRoute><LibraryPage /></ProtectedRoute>} /> {/* 🔹 НОВЫЙ РОУТ */}
                     <Route path="/search" element={<SearchCatalog />} />
                     <Route path="/prompt/:id" element={<PromptDetail />} />
                     <Route path="/assistant" element={<AssistantPage />} />
@@ -90,7 +91,6 @@ const App = () => (
                     <Route path="/blog/create" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
                     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-                    <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
                     <Route path="/referrals" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
                     <Route path="/team" element={<ProtectedRoute><TeamAccountsPage /></ProtectedRoute>} />
                     <Route path="/custom-orders" element={<ProtectedRoute><CustomOrdersPage /></ProtectedRoute>} />

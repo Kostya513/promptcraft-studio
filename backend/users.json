@@ -13,5 +13,14 @@
     "provider": "yandex",
     "role": "business",
     "created_at": "2026-05-17T11:14:31.768Z"
+  },
+  {
+    "id": 1779121438272,
+    "email": "google@demo.com",
+    "name": "google",
+    "avatar_url": null,
+    "provider": "google",
+    "role": "business",
+    "created_at": "2026-05-18T16:23:58.272Z"
   }
 ]

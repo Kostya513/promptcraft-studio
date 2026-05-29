@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
-import { ArrowLeft, Sparkles, Upload, X, Check, Loader2, Save, Send, AlertCircle } from "lucide-react";
+import { ArrowLeft, Sparkles, Upload, X, Check, Loader2, Save, Send, AlertCircle, Tag } from "lucide-react";
 import { Link } from "react-router-dom";
+import { classifyContent, getClassName, getGroupName, LibraryClassId, LibraryGroupId } from "@/utils/libraryClassifier";
 
 interface AgentStage {
   label: string;
@@ -14,6 +15,7 @@ export default function PublishPromptPage() {
   const [uploadedFiles, setUploadedFiles] = useState<{ name: string; url: string }[]>([]);
   const [dragging, setDragging] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
+  const [contentType, setContentType] = useState<"prompt" | "skill">("prompt");
 
   // Agent state
   const [agentRunning, setAgentRunning] = useState(false);
@@ -21,17 +23,23 @@ export default function PublishPromptPage() {
   const [agentTags, setAgentTags] = useState<string[]>([]);
   const [agentModel, setAgentModel] = useState("");
   const [agentValidated, setAgentValidated] = useState(false);
+  
+  // 🔹 Классификация для библиотеки
+  const [libraryClass, setLibraryClass] = useState<LibraryClassId | "">("");
+  const [libraryGroup, setLibraryGroup] = useState<LibraryGroupId | "">("");
+  const [classificationConfidence, setClassificationConfidence] = useState(0);
+
   const [stages, setStages] = useState<AgentStage[]>([
     { label: "Анализ текста промпта", status: "pending" },
     { label: "Определение категории", status: "pending" },
     { label: "Генерация тегов", status: "pending" },
+    { label: "Классификация для библиотеки", status: "pending" },
     { label: "Определение модели", status: "pending" },
     { label: "Валидация результатов", status: "pending" },
   ]);
 
   const handleImprovePrompt = async () => {
     if (!promptText.trim()) return;
-    // Simulate AI improvement
     setPromptText((prev) => prev + "\n\n[Улучшенная версия промпта будет сгенерирована через API]");
   };
 
@@ -53,11 +61,11 @@ export default function PublishPromptPage() {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // 🔹 Запуск агента с классификацией
   const runAgent = async () => {
     if (!promptText.trim()) return;
     setAgentRunning(true);
 
-    // Simulate sequential agent stages
     const results = [
       { category: "Текст и копирайтинг", delay: 800 },
       { tags: ["SEO", "Статьи", "Блог"], delay: 1000 },
@@ -71,9 +79,21 @@ export default function PublishPromptPage() {
       if (i === 1) setAgentCategory("Текст и копирайтинг");
       if (i === 2) setAgentTags(["SEO", "Статьи", "Блог", "Контент"]);
       if (i === 3) setAgentModel("GPT-4 / YandexGPT");
+      
+      // 🔹 Этап 3: Автоматическая классификация
+      if (i === 3) {
+        const classification = classifyContent(
+          ["SEO", "Статьи", "Блог"],
+          description,
+          contentType
+        );
+        setLibraryClass(classification.classId);
+        setLibraryGroup(classification.groupId);
+        setClassificationConfidence(classification.confidence);
+      }
 
       const hasResults = uploadedFiles.length > 0;
-      if (i === 4 && !hasResults) {
+      if (i === 5 && !hasResults) {
         setStages((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: "error", result: "Добавьте результаты генерации" } : s)));
         setAgentRunning(false);
         return;
@@ -86,14 +106,43 @@ export default function PublishPromptPage() {
     setAgentRunning(false);
   };
 
+  // 🔹 Ручное изменение тегов с авто-переклассификацией
+  const handleTagChange = (newTags: string[]) => {
+    setAgentTags(newTags);
+    if (newTags.length > 0) {
+      const classification = classifyContent(newTags, description, contentType);
+      setLibraryClass(classification.classId);
+      setLibraryGroup(classification.groupId);
+      setClassificationConfidence(classification.confidence);
+    }
+  };
+
   const handlePublish = () => {
     if (!agentValidated) return;
+    
+    console.log("Publishing with classification:", {
+      promptText,
+      description,
+      tags: agentTags,
+      libraryClass,
+      libraryGroup,
+      confidence: classificationConfidence,
+    });
+    
     setShowNotification(true);
-    // Reset or navigate
   };
 
   const handleSaveDraft = () => {
-    console.log("Saving draft:", { promptText, description, uploadedFiles, agentCategory, agentTags, agentModel });
+    console.log("Saving draft:", { 
+      promptText, 
+      description, 
+      uploadedFiles, 
+      agentCategory, 
+      agentTags, 
+      agentModel,
+      libraryClass,
+      libraryGroup,
+    });
   };
 
   const inputCls = "w-full px-3 py-2.5 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30";
@@ -113,11 +162,13 @@ export default function PublishPromptPage() {
             <Check className="h-5 w-5 text-success" />
             <div>
               <p className="text-sm font-medium">Промпт успешно опубликован!</p>
-              <p className="text-xs text-muted-foreground">Управляйте промптами в разделе Studio</p>
+              <p className="text-xs text-muted-foreground">
+                Автоматически размещён в: {libraryClass ? getClassName(libraryClass) : "Библиотеке"}
+              </p>
             </div>
           </div>
-          <Link to="/my-prompts" className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
-            Перейти в Studio
+          <Link to="/library" className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
+            Перейти в Библиотеку
           </Link>
         </div>
       )}
@@ -125,6 +176,33 @@ export default function PublishPromptPage() {
       <div className="grid lg:grid-cols-5 gap-6">
         {/* Left column — 3/5 */}
         <div className="lg:col-span-3 space-y-5">
+          {/* Тип контента */}
+          <div>
+            <label className="text-sm font-medium mb-2 block">Тип контента</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setContentType("prompt")}
+                className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  contentType === "prompt"
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border hover:bg-muted"
+                }`}
+              >
+                📝 Промпт
+              </button>
+              <button
+                onClick={() => setContentType("skill")}
+                className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  contentType === "skill"
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border hover:bg-muted"
+                }`}
+              >
+                ⚡ Скил
+              </button>
+            </div>
+          </div>
+
           {/* Prompt text */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -239,13 +317,14 @@ export default function PublishPromptPage() {
                 <label className="text-xs font-medium mb-1 block text-muted-foreground">Категория</label>
                 <input value={agentCategory} onChange={(e) => setAgentCategory(e.target.value)} placeholder="Определяется агентом..." className={inputCls} />
               </div>
+              
               <div>
                 <label className="text-xs font-medium mb-1 block text-muted-foreground">Теги</label>
                 <div className="flex flex-wrap gap-1.5 min-h-[32px]">
                   {agentTags.map((tag) => (
                     <span key={tag} className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium flex items-center gap-1">
                       {tag}
-                      <button onClick={() => setAgentTags((prev) => prev.filter((t) => t !== tag))}>
+                      <button onClick={() => handleTagChange(agentTags.filter((t) => t !== tag))}>
                         <X className="h-2.5 w-2.5" />
                       </button>
                     </span>
@@ -253,6 +332,39 @@ export default function PublishPromptPage() {
                   {agentTags.length === 0 && <span className="text-xs text-muted-foreground">Определяются агентом...</span>}
                 </div>
               </div>
+
+              {/* 🔹 Классификация для библиотеки */}
+              {libraryClass && (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Tag className="h-3.5 w-3.5 text-primary" />
+                    <label className="text-xs font-semibold text-primary">Размещение в библиотеке</label>
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Класс:</span>
+                      <span className="font-medium">{getClassName(libraryClass)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Группа:</span>
+                      <span className="font-medium">{libraryGroup ? getGroupName(libraryGroup) : "Не определена"}</span>
+                    </div>
+                    {classificationConfidence > 0 && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-muted-foreground">Уверенность:</span>
+                        <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${classificationConfidence * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px]">{Math.round(classificationConfidence * 100)}%</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               <div>
                 <label className="text-xs font-medium mb-1 block text-muted-foreground">ИИ-модель</label>
                 <input value={agentModel} onChange={(e) => setAgentModel(e.target.value)} placeholder="Определяется агентом..." className={inputCls} />

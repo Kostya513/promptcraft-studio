@@ -1,421 +1,448 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Search, SlidersHorizontal, Heart, MessageCircle, Share2, MoreHorizontal, Image as ImageIcon, Video, Link2, Send, Loader2, CheckCircle, Bookmark, BookmarkCheck } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { 
+  Search, Heart, MessageCircle, Share2, MoreHorizontal, 
+  Image as ImageIcon, Video, Link2, Send, Loader2, 
+  CheckCircle, Bookmark, X, Pencil, Trash2, Pin,
+  ExternalLink
+} from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { toast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-// ✅ OPTIMIZATION: Утилита для кэширования изображений в localStorage
-const ImageCache = {
-  get: (url: string): string | null => {
-    try {
-      const item = localStorage.getItem(`img_cache_${url}`);
-      if (!item) return null;
-      const parsed = JSON.parse(item);
-      if (Date.now() - parsed.timestamp > 7 * 24 * 60 * 60 * 1000) {
-        localStorage.removeItem(`img_cache_${url}`);
-        return null;
-      }
-      return parsed.data;
-    } catch {
-      return null;
-    }
-  },
-  set: (url: string, data: string): void => {
-    try {
-      localStorage.setItem(`img_cache_${url}`, JSON.stringify({ data, timestamp: Date.now() }));
-    } catch (e) {
-      console.warn("Image cache save failed:", e);
-    }
-  }
-};
+// ============================================
+// КОНСТАНТЫ И ТИПЫ
+// ============================================
 
-// ✅ OPTIMIZATION: Компонент изображения с кэшем, lazy loading и fallback
-const OptimizedImage: React.FC<{ 
-  src: string; 
-  alt: string; 
-  className?: string; 
-  priority?: boolean;
-  fallbackIcon?: React.ReactNode;
-}> = ({ src, alt, className = "", priority = false, fallbackIcon }) => {
-  const [cachedSrc, setCachedSrc] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
+const API_URL = 'http://localhost:3000/api';
 
-  useEffect(() => {
-    const cached = ImageCache.get(src);
-    if (cached) {
-      setCachedSrc(cached);
-      setLoaded(true);
-    }
-  }, [src]);
-
-  const handleLoad = useCallback(() => {
-    setLoaded(true);
-    if (!cachedSrc && src.startsWith("http")) {
-      fetch(src)
-        .then(res => res.blob())
-        .then(blob => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64 = reader.result as string;
-            ImageCache.set(src, base64);
-          };
-          reader.readAsDataURL(blob);
-        })
-        .catch(() => {});
-    }
-  }, [src, cachedSrc]);
-
-  if (error) {
-    return (
-      <div className={`${className} bg-muted flex items-center justify-center text-muted-foreground`}>
-        {fallbackIcon || <ImageIcon className="h-8 w-8" />}
-      </div>
-    );
-  }
-
-  return (
-    <div className={`relative overflow-hidden ${className}`}>
-      {!loaded && <Skeleton className="absolute inset-0" />}
-      <img
-        src={cachedSrc || src}
-        alt={alt}
-        loading={priority ? "eager" : "lazy"}
-        decoding="async"
-        onLoad={handleLoad}
-        onError={() => setError(true)}
-        className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
-      />
-    </div>
-  );
-};
-
-// ✅ SKELETON: Компонент скелетона для поста
-const PostSkeleton = () => (
-  <div className="bg-card rounded-xl border border-border p-4 space-y-4 animate-fade-in">
-    <div className="flex items-center gap-3">
-      <Skeleton className="h-10 w-10 rounded-full" />
-      <div className="space-y-2 flex-1">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-3 w-24" />
-      </div>
-      <Skeleton className="h-4 w-4 rounded" />
-    </div>
-    <div className="space-y-2">
-      <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-3/4" />
-      <Skeleton className="h-4 w-1/2" />
-    </div>
-    <Skeleton className="h-48 w-full rounded-lg" />
-    <div className="flex items-center justify-between pt-2">
-      <div className="flex gap-4">
-        <div className="flex items-center gap-1.5">
-          <Skeleton className="h-4 w-4 rounded" />
-          <Skeleton className="h-3 w-8" />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Skeleton className="h-4 w-4 rounded" />
-          <Skeleton className="h-3 w-8" />
-        </div>
-      </div>
-      <Skeleton className="h-4 w-4 rounded" />
-    </div>
-  </div>
-);
-
-// ✅ SKELETON: Компонент скелетона для комментария
-const CommentSkeleton = () => (
-  <div className="flex gap-3 py-3">
-    <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
-    <div className="flex-1 space-y-2">
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-3 w-16" />
-      </div>
-      <Skeleton className="h-3 w-full" />
-      <Skeleton className="h-3 w-3/4" />
-    </div>
-  </div>
-);
-
-// ✅ ТИПЫ ДАННЫХ
 type Post = {
   id: string;
-  author: { name: string; avatar?: string; verified?: boolean };
+  author: { 
+    name: string; 
+    avatar?: string; 
+    verified?: boolean 
+  };
+  title: string;
   content: string;
   image?: string;
   video?: string;
-  link?: { title: string; url: string; preview?: string };
   likes: number;
   comments: number;
   shares: number;
-  bookmarks: number;
   createdAt: string;
   liked?: boolean;
   bookmarked?: boolean;
-  tags?: string[];
+  isPinned?: boolean;
+  authorId: string;
 };
 
 type Comment = {
   id: string;
-  author: { name: string; avatar?: string };
+  author: { 
+    name: string; 
+    avatar?: string 
+  };
   content: string;
   createdAt: string;
   likes: number;
 };
 
-// ✅ МОКОВЫЕ ДАННЫЕ (сохранены для локальной разработки)
-const mockPosts: Post[] = [];
-const mockComments: Record<string, Comment[]> = {};
+// ============================================
+// API ФУНКЦИИ
+// ============================================
+
+const apiRequest = async (endpoint: string, options?: RequestInit) => {
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        ...options?.headers,
+      },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
+      throw new Error(errorData.message || `HTTP ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`API request failed: ${endpoint}`, error);
+    throw error;
+  }
+};
+
+// ============================================
+// ОСНОВНОЙ КОМПОНЕНТ
+// ============================================
 
 export default function CommunityPage() {
   const { user } = useUser();
-  const [query, setQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"all" | "popular" | "recent">("recent");
+  
+  // Состояния
   const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
-  const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({});
-  const [newComment, setNewComment] = useState("");
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const loaderRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
   const [showCreatePost, setShowCreatePost] = useState(false);
+  const [newPostTitle, setNewPostTitle] = useState(""); 
   const [newPostContent, setNewPostContent] = useState("");
   const [newPostImage, setNewPostImage] = useState<File | null>(null);
+  const [newPostVideo, setNewPostVideo] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "popular" | "recent">("recent");
+  
+  const menuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
-  // ✅ OPTIMIZATION: Загрузка постов с retry и обработкой ошибок
-  const fetchPosts = useCallback(async (pageNum: number, append = false) => {
-    if (pageNum === 1) setLoading(true);
-    else setLoadingMore(true);
-    
+  // ============================================
+  // ЗАГРУЗКА ДАННЫХ
+  // ============================================
+  
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  const loadPosts = async () => {
     try {
-      // Используем apiClient с автоматическим retry
-      // В продакшене раскомментируй:
-      /*
-      const data = await apiClient.get<Post[]>(
-        `/api/community/posts?page=${pageNum}&filter=${activeFilter}`,
-        { maxRetries: 3, retryDelay: 1000 }
-      );
-      */
+      setLoading(true);
+      const response = await apiRequest('/posts');
       
-      // Пока имитация:
-      await new Promise(resolve => setTimeout(resolve, 800));
-      const data: Post[] = []; // mockPosts
-      
-      if (data.length === 0 && pageNum > 1) {
-        setHasMore(false);
+      if (response.success && Array.isArray(response.data)) {
+        // Преобразуем данные с бэкенда в формат фронтенда
+        const mappedPosts: Post[] = response.data.map((post: any) => ({
+          id: post.id,
+          author: {
+            name: post.authorName || 'Пользователь',
+            avatar: post.authorAvatar || undefined,
+            verified: post.authorVerified === 'true' || post.authorVerified === true
+          },
+          title: post.title || '',
+          content: post.content || '',
+          image: post.image || undefined,
+          video: post.video || undefined,
+          likes: typeof post.likes === 'number' ? post.likes : 0,
+          comments: typeof post.comments === 'number' ? post.comments : 0,
+          shares: typeof post.shares === 'number' ? post.shares : 0,
+          createdAt: post.createdAt,
+          isPinned: post.isPinned === true || post.isPinned === 'true',
+          authorId: String(post.authorId) || 'unknown'
+        }));
+        
+        setPosts(mappedPosts);
+      } else {
+        console.error('Unexpected API response:', response);
+        setPosts([]);
       }
-      
-      setPosts(prev => append ? [...prev, ...data] : data);
-      setPage(pageNum);
-      
     } catch (error) {
-      console.error("Failed to fetch posts:", error);
+      console.error('Failed to load posts:', error);
       toast({ 
-        title: "Ошибка загрузки ленты", 
-        description: error instanceof Error ? error.message : "Проверьте подключение к интернету",
-        variant: "destructive",
-        duration: 5000,
+        title: "Ошибка загрузки", 
+        description: error instanceof Error ? error.message : "Не удалось загрузить посты", 
+        variant: "destructive" 
       });
+      setPosts([]);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
-  }, [activeFilter, page]);
+  };
 
-  // Initial load
+  // Закрытие меню при клике вне
   useEffect(() => {
-    fetchPosts(1, false);
-  }, [fetchPosts]);
-
-  // ✅ OPTIMIZATION: Infinite scroll
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loadingMore && hasMore) {
-          fetchPosts(page + 1, true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-    if (loaderRef.current) observer.observe(loaderRef.current);
-    return () => observer.disconnect();
-  }, [page, loadingMore, hasMore, fetchPosts]);
-
-  // ✅ OPTIMIZATION: Мемоизация фильтрации и сортировки
-  const filteredPosts = useMemo(() => {
-    let result = [...posts];
-    
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      result = result.filter(p => 
-        p.content.toLowerCase().includes(q) || 
-        p.author.name.toLowerCase().includes(q) ||
-        p.tags?.some(t => t.toLowerCase().includes(q))
-      );
-    }
-    
-    if (activeFilter === "popular") {
-      result.sort((a, b) => b.likes - a.likes);
-    } else if (activeFilter === "recent") {
-      result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
-    
-    return result;
-  }, [posts, query, activeFilter]);
-
-  // ✅ OPTIMIZATION: Оптимистичный лайк с откатом при ошибке
-  const handleLike = async (postId: string) => {
-    const originalPosts = [...posts];
-    setPosts(prev => prev.map(p => 
-      p.id === postId ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p
-    ));
-    
-    try {
-      // В продакшене: await fetch(`/api/posts/${postId}/like`, { method: 'POST' });
-      await new Promise(resolve => setTimeout(resolve, 300));
-    } catch (error) {
-      setPosts(originalPosts);
-      toast({ title: "Не удалось поставить лайк", variant: "destructive" });
-    }
-  };
-
-  // ✅ OPTIMIZATION: Оптимистичное сохранение в закладки
-  const handleBookmark = async (postId: string) => {
-    const originalPosts = [...posts];
-    setPosts(prev => prev.map(p => 
-      p.id === postId ? { ...p, bookmarked: !p.bookmarked, bookmarks: p.bookmarked ? p.bookmarks - 1 : p.bookmarks + 1 } : p
-    ));
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-    } catch (error) {
-      setPosts(originalPosts);
-      toast({ title: "Не удалось сохранить пост", variant: "destructive" });
-    }
-  };
-
-  // ✅ OPTIMIZATION: Шаринг с fallback для десктопа
-  const handleShare = (post: Post) => {
-    const shareData = {
-      title: "Промпт-Студия",
-      text: post.content,
-      url: `${window.location.origin}/community?post=${post.id}`
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActiveMenu(null);
+      }
     };
-    
-    if (navigator.share) {
-      navigator.share(shareData).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(shareData.url);
-      toast({ 
-        title: "Ссылка скопирована", 
-        description: "Поделитесь постом в любом мессенджере",
-        action: <CheckCircle className="h-4 w-4 text-success" />
-      });
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ============================================
+  // ОБРАБОТЧИКИ ФАЙЛОВ
+  // ============================================
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "Файл слишком большой", description: "Максимум 10 МБ", variant: "destructive" });
+        return;
+      }
+      setNewPostImage(file);
+      if (newPostVideo) { 
+        setNewPostVideo(null); 
+        setVideoPreview(null); 
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
     }
   };
 
-  // ✅ OPTIMIZATION: Загрузка комментариев с skeleton
-  const loadComments = async (postId: string) => {
-    if (comments[postId]) return;
-    
-    setLoadingComments(prev => ({ ...prev, [postId]: true }));
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // В продакшене: const res = await fetch(`/api/posts/${postId}/comments`);
-      setComments(prev => ({ ...prev, [postId]: mockComments[postId] || [] }));
-    } catch (error) {
-      toast({ title: "Ошибка загрузки комментариев", variant: "destructive" });
-    } finally {
-      setLoadingComments(prev => ({ ...prev, [postId]: false }));
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast({ title: "Видео слишком большое", description: "Максимум 50 МБ", variant: "destructive" });
+        return;
+      }
+      if (!file.type.startsWith('video/')) {
+        toast({ title: "Неверный формат", description: "Загрузите видео файл", variant: "destructive" });
+        return;
+      }
+      setNewPostVideo(file);
+      if (newPostImage) { 
+        setNewPostImage(null); 
+        setImagePreview(null); 
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => setVideoPreview(reader.result as string);
+      reader.readAsDataURL(file);
     }
   };
 
-  // ✅ OPTIMIZATION: Оптимистичное добавление комментария
-  const handleAddComment = async (postId: string) => {
-    if (!newComment.trim()) return;
-    
-    const optimisticComment: Comment = {
-      id: `temp_${Date.now()}`,
-      author: { name: user?.name || "Вы", avatar: user?.avatar },
-      content: newComment,
-      createdAt: new Date().toISOString(),
-      likes: 0
-    };
-    
-    setComments(prev => ({
-      ...prev,
-      [postId]: [...(prev[postId] || []), optimisticComment]
-    }));
-    setNewComment("");
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 400));
-      // В продакшене: await fetch(`/api/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ content: newComment }) });
-    } catch (error) {
-      setComments(prev => ({
-        ...prev,
-        [postId]: prev[postId]?.filter(c => c.id !== optimisticComment.id)
-      }));
-      toast({ title: "Не удалось опубликовать комментарий", variant: "destructive" });
-    }
+  const removeImagePreview = () => { 
+    setImagePreview(null); 
+    setNewPostImage(null); 
+    if (fileInputRef.current) fileInputRef.current.value = ""; 
   };
 
-  // ✅ OPTIMIZATION: Создание поста с валидацией и прогрессом
-  const handleCreatePost = async () => {
-    if (!newPostContent.trim()) {
-      toast({ title: "Напишите содержание поста", variant: "destructive" });
+  const removeVideoPreview = () => { 
+    setVideoPreview(null); 
+    setNewPostVideo(null); 
+    if (videoInputRef.current) videoInputRef.current.value = ""; 
+  };
+
+  // ============================================
+  // СОЗДАНИЕ И РЕДАКТИРОВАНИЕ ПОСТА
+  // ============================================
+
+  const handleSavePost = async () => {
+    if (!newPostContent.trim() && !newPostImage && !newPostVideo) {
+      toast({ title: "Добавьте текст, изображение или видео", variant: "destructive" });
       return;
     }
-    
+
     setPosting(true);
-    
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const newPost: Post = {
-        id: `new_${Date.now()}`,
-        author: { name: user?.name || "Вы", avatar: user?.avatar, verified: true },
-        content: newPostContent,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        bookmarks: 0,
-        createdAt: new Date().toISOString(),
-        liked: false,
-        bookmarked: false
-      };
-      
-      setPosts(prev => [newPost, ...prev]);
+      if (editingPost) {
+        // Редактирование существующего поста
+        const response = await fetch(`${API_URL}/posts/${editingPost.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: newPostTitle,
+            content: newPostContent,
+          }),
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          await loadPosts();
+          toast({ title: "Пост обновлен" });
+        } else {
+          throw new Error(result.error || 'Failed to update post');
+        }
+      } else {
+        // Создание нового поста через FormData
+        const formData = new FormData();
+        formData.append('title', newPostTitle || '');
+        formData.append('content', newPostContent);
+        formData.append('authorName', user?.name || 'Вы');
+        formData.append('authorAvatar', user?.avatar || '');
+        formData.append('authorVerified', 'true');
+        // ✅ ИСПРАВЛЕНИЕ: Преобразуем id в строку
+        formData.append('authorId', String(user?.id) || 'demo_user');
+        
+        if (newPostImage) {
+          formData.append('media', newPostImage);
+        } else if (newPostVideo) {
+          formData.append('media', newPostVideo);
+        }
+
+        const response = await fetch(`${API_URL}/posts`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          await loadPosts();
+          toast({ title: "Пост опубликован" });
+        } else {
+          throw new Error(result.error || 'Failed to create post');
+        }
+      }
+
+      // Очистка формы
+      setNewPostTitle("");
       setNewPostContent("");
-      setNewPostImage(null);
+      setNewPostImage(null); 
+      setNewPostVideo(null);
+      setImagePreview(null); 
+      setVideoPreview(null);
       setShowCreatePost(false);
-      
-      toast({ title: "Пост опубликован", description: "Ваш пост появился в ленте" });
+      setEditingPost(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (videoInputRef.current) videoInputRef.current.value = "";
       
     } catch (error) {
-      toast({ title: "Ошибка публикации", description: "Попробуйте позже", variant: "destructive" });
+      console.error('Save post error:', error);
+      toast({ 
+        title: "Ошибка", 
+        description: error instanceof Error ? error.message : "Не удалось сохранить пост", 
+        variant: "destructive" 
+      });
     } finally {
       setPosting(false);
     }
   };
 
-  // ✅ Утилита форматирования времени
-  const formatTimeAgo = (dateString: string) => {
+  // ============================================
+  // УПРАВЛЕНИЕ ПОСТАМИ
+  // ============================================
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("Удалить этот пост?")) return;
+
+    try {
+      const response = await apiRequest(`/posts/${postId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.success) {
+        setPosts(prev => prev.filter(p => p.id !== postId));
+        setActiveMenu(null);
+        toast({ title: "Пост удален" });
+      }
+    } catch (error) {
+      console.error('Delete post error:', error);
+      toast({ title: "Ошибка при удалении", variant: "destructive" });
+    }
+  };
+
+  const handleEditPost = (post: Post) => {
+    setEditingPost(post);
+    setNewPostTitle(post.title);
+    setNewPostContent(post.content);
+    setShowCreatePost(true);
+    setActiveMenu(null);
+  };
+
+  const handlePinPost = (postId: string) => {
+    setPosts(prev => prev.map(p => 
+      p.id === postId ? { ...p, isPinned: !p.isPinned } : p
+    ));
+    setActiveMenu(null);
+    toast({ title: "Пост закреплен" });
+  };
+
+  const handleLike = async (postId: string) => {
+    try {
+      const response = await apiRequest(`/posts/${postId}/like`, {
+        method: 'PUT',
+      });
+
+      if (response.success) {
+        setPosts(prev => prev.map(p => 
+          p.id === postId 
+            ? { ...p, likes: response.data.likes, liked: !p.liked }
+            : p
+        ));
+      }
+    } catch (error) {
+      console.error('Like error:', error);
+      // Fallback: локальное обновление
+      setPosts(prev => prev.map(p => 
+        p.id === postId 
+          ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 }
+          : p
+      ));
+    }
+  };
+
+  const handleAddComment = (postId: string) => {
+    if (!newComment.trim()) return;
+
+    const comment: Comment = {
+      id: `comment_${Date.now()}`,
+      author: { name: user?.name || "Вы", avatar: user?.avatar },
+      content: newComment,
+      createdAt: new Date().toISOString(),
+      likes: 0
+    };
+
+    setComments(prev => ({ 
+      ...prev, 
+      [postId]: [...(prev[postId] || []), comment] 
+    }));
+
+    setPosts(prev => prev.map(p => 
+      p.id === postId ? { ...p, comments: p.comments + 1 } : p
+    ));
+
+    setNewComment("");
+  };
+
+  const handleShare = async (post: Post) => {
+    try {
+      await apiRequest(`/posts/${post.id}/share`, {
+        method: 'PUT',
+      });
+      
+      setPosts(prev => prev.map(p => 
+        p.id === post.id ? { ...p, shares: p.shares + 1 } : p
+      ));
+
+      const shareData = {
+        title: post.title || "Пост в Промпт-Студии",
+        text: post.content,
+        url: `${window.location.origin}/community?post=${post.id}`
+      };
+
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+        } catch {
+          navigator.clipboard.writeText(shareData.url);
+          toast({ title: "Ссылка скопирована" });
+        }
+      } else {
+        navigator.clipboard.writeText(shareData.url);
+        toast({ title: "Ссылка скопирована" });
+      }
+    } catch (error) {
+      console.error('Share error:', error);
+      navigator.clipboard.writeText(`${window.location.origin}/community?post=${post.id}`);
+      toast({ title: "Ссылка скопирована" });
+    }
+  };
+
+  // ============================================
+  // УТИЛИТЫ
+  // ============================================
+
+  const formatTimeAgo = (dateString: string): string => {
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "недавно";
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
-    
     if (minutes < 1) return "только что";
     if (minutes < 60) return `${minutes} мин назад`;
     if (hours < 24) return `${hours} ч назад`;
@@ -423,57 +450,124 @@ export default function CommunityPage() {
     return date.toLocaleDateString("ru-RU");
   };
 
+  const filteredPosts = posts.filter(post => {
+    if (searchQuery && (
+      !post.content.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !post.title.toLowerCase().includes(searchQuery.toLowerCase())
+    )) return false;
+    return true;
+  }).sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    if (filter === "popular") return b.likes - a.likes;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const openCreateModal = () => {
+    setEditingPost(null); 
+    setNewPostTitle(""); 
+    setNewPostContent(""); 
+    setImagePreview(null); 
+    setVideoPreview(null);
+    setNewPostImage(null); 
+    setNewPostVideo(null); 
+    setShowCreatePost(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (videoInputRef.current) videoInputRef.current.value = "";
+  };
+
+  // ============================================
+  // СКЕЛЕТОН ЗАГРУЗКИ
+  // ============================================
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-card rounded-xl border border-border p-4 animate-pulse">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-full bg-muted"></div>
+                <div className="flex-1">
+                  <div className="h-4 w-32 bg-muted rounded mb-2"></div>
+                  <div className="h-3 w-24 bg-muted rounded"></div>
+                </div>
+              </div>
+              <div className="h-4 w-full bg-muted rounded mb-2"></div>
+              <div className="h-4 w-3/4 bg-muted rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================
+  // ОСНОВНОЙ РЕНДЕР
+  // ============================================
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      {/* Header */}
+      {/* Заголовок */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Сообщество</h1>
-        <Button onClick={() => setShowCreatePost(true)} className="gradient-primary">
+        <Button onClick={openCreateModal} className="gradient-primary">
           Создать пост
         </Button>
       </div>
 
-      {/* Search & Filters */}
+      {/* Поиск и фильтры */}
       <div className="flex gap-2 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по постам..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          <input 
+            type="text" 
+            value={searchQuery} 
+            onChange={(e) => setSearchQuery(e.target.value)} 
+            placeholder="Поиск по постам..." 
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" 
           />
         </div>
         <div className="flex gap-1">
           {[
-            { key: "recent", label: "Новые" },
-            { key: "popular", label: "Популярные" },
+            { key: "recent", label: "Новые" }, 
+            { key: "popular", label: "Популярные" }, 
             { key: "all", label: "Все" }
-          ].map(filter => (
-            <button
-              key={filter.key}
-              onClick={() => { setActiveFilter(filter.key as any); fetchPosts(1, false); }}
+          ].map(f => (
+            <button 
+              key={f.key} 
+              onClick={() => setFilter(f.key as "all" | "popular" | "recent")} 
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeFilter === filter.key
-                  ? "gradient-primary text-primary-foreground"
+                filter === f.key 
+                  ? "gradient-primary text-primary-foreground" 
                   : "bg-card border border-border text-muted-foreground hover:text-foreground"
               }`}
             >
-              {filter.label}
+              {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Create Post Modal */}
+      {/* Модальное окно создания поста */}
       {showCreatePost && (
-        <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCreatePost(false)}>
-          <div className="bg-card rounded-2xl border border-border p-6 max-w-lg w-full shadow-elevated" onClick={e => e.stopPropagation()}>
+        <div 
+          className="fixed inset-0 bg-foreground/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" 
+          onClick={() => setShowCreatePost(false)}
+        >
+          <div 
+            className="bg-card rounded-2xl border border-border p-6 max-w-lg w-full shadow-elevated max-h-[90vh] overflow-y-auto" 
+            onClick={e => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Новый пост</h3>
-              <button onClick={() => setShowCreatePost(false)} className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center">
-                <span className="text-lg">×</span>
+              <h3 className="text-lg font-semibold">
+                {editingPost ? "Редактировать пост" : "Новый пост"}
+              </h3>
+              <button 
+                onClick={() => setShowCreatePost(false)} 
+                className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center"
+              >
+                <X className="h-4 w-4" />
               </button>
             </div>
             
@@ -482,95 +576,117 @@ export default function CommunityPage() {
                 <AvatarImage src={user?.avatar} />
                 <AvatarFallback>{user?.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
               </Avatar>
-              <textarea
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="О чём думаете?"
-                className="flex-1 min-h-[100px] p-3 rounded-xl bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-              />
-            </div>
-            
-            {newPostImage && (
-              <div className="relative mb-4">
-                <OptimizedImage
-                  src={URL.createObjectURL(newPostImage)}
-                  alt="preview"
-                  className="h-48 rounded-xl"
-                  priority
+              <div className="flex-1 space-y-3">
+                <input 
+                  type="text" 
+                  value={newPostTitle} 
+                  onChange={(e) => setNewPostTitle(e.target.value)} 
+                  placeholder="Заголовок поста (необязательно)" 
+                  className="w-full px-3 py-2 rounded-xl bg-muted/50 border border-border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30" 
                 />
-                <button
-                  onClick={() => { setNewPostImage(null); URL.revokeObjectURL(URL.createObjectURL(newPostImage)); }}
-                  className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs"
+                <textarea 
+                  value={newPostContent} 
+                  onChange={(e) => setNewPostContent(e.target.value)} 
+                  placeholder="О чём думаете?" 
+                  className="w-full min-h-[100px] px-3 py-2 rounded-xl bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" 
+                />
+              </div>
+            </div>
+
+            {/* Превью изображения */}
+            {imagePreview && (
+              <div className="relative mb-4">
+                <img src={imagePreview} alt="preview" className="h-48 w-full object-cover rounded-xl" />
+                <button 
+                  onClick={removeImagePreview} 
+                  className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs hover:bg-destructive/90"
                 >
-                  ×
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+
+            {/* Превью видео */}
+            {videoPreview && (
+              <div className="relative mb-4">
+                <video src={videoPreview} controls className="h-48 w-full object-cover rounded-xl" />
+                <button 
+                  onClick={removeVideoPreview} 
+                  className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs hover:bg-destructive/90"
+                >
+                  <X className="h-3 w-3" />
                 </button>
               </div>
             )}
             
+            {/* Кнопки */}
             <div className="flex items-center justify-between pt-4 border-t border-border">
               <div className="flex gap-2">
-                <label className="cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors">
+                <label className="cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors" title="Загрузить изображение">
                   <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 10 * 1024 * 1024) {
-                          toast({ title: "Файл слишком большой", description: "Максимум 10 МБ", variant: "destructive" });
-                          return;
-                        }
-                        setNewPostImage(file);
-                      }
-                    }}
-                    className="hidden"
+                  <input 
+                    ref={fileInputRef} 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleImageSelect} 
+                    className="hidden" 
                   />
                 </label>
-                <button className="p-2 rounded-lg hover:bg-muted transition-colors">
+                <label className="cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors" title="Загрузить видео">
                   <Video className="h-5 w-5 text-muted-foreground" />
-                </button>
-                <button className="p-2 rounded-lg hover:bg-muted transition-colors">
+                  <input 
+                    ref={videoInputRef} 
+                    type="file" 
+                    accept="video/*" 
+                    onChange={handleVideoSelect} 
+                    className="hidden" 
+                  />
+                </label>
+                <button className="p-2 rounded-lg hover:bg-muted transition-colors" title="Добавить ссылку">
                   <Link2 className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
-              <Button
-                onClick={handleCreatePost}
-                disabled={posting || !newPostContent.trim()}
+              <Button 
+                onClick={handleSavePost} 
+                disabled={posting || (!newPostContent.trim() && !newPostImage && !newPostVideo)} 
                 className="gradient-primary"
               >
                 {posting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Опубликовать
+                {editingPost ? "Сохранить" : "Опубликовать"}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Posts List */}
+      {/* Список постов */}
       <div className="space-y-4">
-        {/* ✅ SKELETON: Первая загрузка */}
-        {loading && posts.length === 0 ? (
-          [...Array(3)].map((_, i) => <PostSkeleton key={i} />)
-        ) : filteredPosts.length === 0 ? (
+        {filteredPosts.length === 0 ? (
           <div className="text-center py-12 bg-card rounded-xl border border-border">
             <p className="text-muted-foreground mb-4">
-              {query ? "Ничего не найдено" : "Пока нет постов. Будьте первым!"}
+              {searchQuery ? "Ничего не найдено" : "Пока нет постов. Будьте первым!"}
             </p>
-            {!query && (
-              <Button onClick={() => setShowCreatePost(true)} variant="outline">
+            {!searchQuery && (
+              <Button onClick={openCreateModal} variant="outline">
                 Создать первый пост
               </Button>
             )}
           </div>
         ) : (
           filteredPosts.map(post => (
-            <article key={post.id} className="bg-card rounded-xl border border-border p-4 animate-fade-in">
-              {/* Post Header */}
+            <article key={post.id} className="bg-card rounded-xl border border-border p-4 animate-fade-in relative">
+              {/* Закреплённый пост */}
+              {post.isPinned && (
+                <div className="absolute top-2 right-2 text-primary">
+                  <Pin className="h-4 w-4 fill-current" />
+                </div>
+              )}
+              
+              {/* Шапка */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={post.author.avatar} loading="lazy" />
+                    <AvatarImage src={post.author.avatar} />
                     <AvatarFallback>{post.author.name[0]?.toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
@@ -578,60 +694,95 @@ export default function CommunityPage() {
                       <span className="font-medium text-sm">{post.author.name}</span>
                       {post.author.verified && (
                         <span className="h-4 w-4 rounded-full bg-primary flex items-center justify-center">
-                          <span className="text-[10px] text-primary-foreground">✓</span>
+                          <CheckCircle className="h-3 w-3 text-primary-foreground" />
                         </span>
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground">{formatTimeAgo(post.createdAt)}</span>
                   </div>
                 </div>
-                <button className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                </button>
+                
+                {/* Меню */}
+                <div className="relative" ref={menuRef}>
+                  <button 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      setActiveMenu(activeMenu === post.id ? null : post.id); 
+                    }} 
+                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                  
+                  {activeMenu === post.id && (
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-lg shadow-lg z-50 py-1">
+                      <button 
+                        onClick={() => handleEditPost(post)} 
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                      >
+                        <Pencil className="h-4 w-4" /> Редактировать
+                      </button>
+                      <button 
+                        onClick={() => handlePinPost(post.id)} 
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
+                      >
+                        <Pin className="h-4 w-4" /> {post.isPinned ? "Открепить" : "Закрепить"}
+                      </button>
+                      <div className="border-t border-border my-1"></div>
+                      <button 
+                        onClick={() => handleDeletePost(post.id)} 
+                        className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 flex items-center gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" /> Удалить
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Post Content */}
+              {/* Заголовок и контент */}
+              {post.title && (
+                <h3 className="text-lg font-semibold mb-2">{post.title}</h3>
+              )}
               <p className="text-sm mb-3 whitespace-pre-wrap">{post.content}</p>
               
-              {post.tags && post.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {post.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 rounded-full bg-muted/50 text-xs text-muted-foreground">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Post Media */}
+              {/* Изображение */}
               {post.image && (
                 <div className="mb-3 rounded-xl overflow-hidden">
-                  <OptimizedImage src={post.image} alt="post image" className="h-64" />
+                  <img 
+                    src={`http://localhost:3000${post.image}`} 
+                    alt="post" 
+                    className="w-full h-64 object-cover"
+                    onError={(e) => {
+                      if (post.image?.startsWith('data:')) {
+                        (e.target as HTMLImageElement).src = post.image;
+                      }
+                    }}
+                  />
                 </div>
               )}
-              
-              {post.link && (
-                <a
-                  href={post.link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-3 rounded-xl bg-muted/50 border border-border hover:bg-muted/80 transition-colors mb-3"
-                >
-                  {post.link.preview && (
-                    <OptimizedImage src={post.link.preview} alt={post.link.title} className="h-32 rounded-lg mb-2" />
-                  )}
-                  <div className="flex items-center gap-2 text-sm">
-                    <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-primary hover:underline truncate">{post.link.title}</span>
-                  </div>
-                </a>
+
+              {/* Видео */}
+              {post.video && (
+                <div className="mb-3 rounded-xl overflow-hidden bg-black">
+                  <video 
+                    src={`http://localhost:3000${post.video}`} 
+                    controls 
+                    className="w-full h-64 object-cover"
+                    onError={(e) => {
+                      if (post.video?.startsWith('data:')) {
+                        (e.target as HTMLVideoElement).src = post.video;
+                      }
+                    }}
+                  />
+                </div>
               )}
 
-              {/* Post Actions */}
+              {/* Кнопки действий */}
               <div className="flex items-center justify-between pt-3 border-t border-border/50">
                 <div className="flex gap-4">
-                  <button
-                    onClick={() => handleLike(post.id)}
+                  <button 
+                    onClick={() => handleLike(post.id)} 
                     className={`flex items-center gap-1.5 text-sm transition-colors ${
                       post.liked ? "text-primary" : "text-muted-foreground hover:text-foreground"
                     }`}
@@ -639,44 +790,41 @@ export default function CommunityPage() {
                     <Heart className={`h-4 w-4 ${post.liked ? "fill-current" : ""}`} />
                     <span>{post.likes}</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      setExpandedPost(expandedPost === post.id ? null : post.id);
-                      if (expandedPost !== post.id) loadComments(post.id);
-                    }}
+                  <button 
+                    onClick={() => setExpandedPost(expandedPost === post.id ? null : post.id)} 
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <MessageCircle className="h-4 w-4" />
                     <span>{post.comments}</span>
                   </button>
-                  <button
-                    onClick={() => handleShare(post)}
+                  <button 
+                    onClick={() => handleShare(post)} 
                     className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Share2 className="h-4 w-4" />
                     <span>{post.shares}</span>
                   </button>
                 </div>
-                <button
-                  onClick={() => handleBookmark(post.id)}
+                <button 
+                  onClick={() => setPosts(prev => prev.map(p => 
+                    p.id === post.id ? { ...p, bookmarked: !p.bookmarked } : p
+                  ))} 
                   className={`flex items-center gap-1.5 text-sm transition-colors ${
                     post.bookmarked ? "text-primary" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {post.bookmarked ? <BookmarkCheck className="h-4 w-4 fill-current" /> : <Bookmark className="h-4 w-4" />}
+                  <Bookmark className={`h-4 w-4 ${post.bookmarked ? "fill-current" : ""}`} />
                 </button>
               </div>
 
-              {/* Comments Section */}
+              {/* Комментарии */}
               {expandedPost === post.id && (
                 <div className="mt-4 pt-4 border-t border-border space-y-3">
                   <div className="space-y-3">
-                    {loadingComments[post.id] && !comments[post.id] ? (
-                      [...Array(2)].map((_, i) => <CommentSkeleton key={i} />)
-                    ) : comments[post.id]?.map(comment => (
+                    {comments[post.id]?.map(comment => (
                       <div key={comment.id} className="flex gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={comment.author.avatar} loading="lazy" />
+                          <AvatarImage src={comment.author.avatar} />
                           <AvatarFallback>{comment.author.name[0]?.toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 bg-muted/30 rounded-xl p-3">
@@ -704,9 +852,9 @@ export default function CommunityPage() {
                         placeholder="Написать комментарий..."
                         className="flex-1 px-3 py-2 rounded-xl bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                       />
-                      <button
-                        onClick={() => handleAddComment(post.id)}
-                        disabled={!newComment.trim()}
+                      <button 
+                        onClick={() => handleAddComment(post.id)} 
+                        disabled={!newComment.trim()} 
                         className="p-2 rounded-xl gradient-primary text-primary-foreground disabled:opacity-40"
                       >
                         <Send className="h-4 w-4" />
@@ -717,19 +865,6 @@ export default function CommunityPage() {
               )}
             </article>
           ))
-        )}
-
-        {/* ✅ SKELETON: Бесконечная прокрутка */}
-        {loadingMore && (
-          <div className="py-4">
-            <PostSkeleton />
-          </div>
-        )}
-        
-        <div ref={loaderRef} className="h-1" />
-        
-        {!hasMore && posts.length > 0 && (
-          <p className="text-center text-xs text-muted-foreground py-4">Все посты загружены</p>
         )}
       </div>
     </div>

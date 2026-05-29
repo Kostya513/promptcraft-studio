@@ -1,22 +1,27 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { StudioDashboard } from "@/components/studio/StudioDashboard";
-import { StudioMyPrompts } from "@/components/studio/StudioMyPrompts";
-import { StudioLibrary } from "@/components/studio/StudioLibrary";
-import { StudioFinances } from "@/components/studio/StudioFinances";
-import { StudioAnalytics } from "@/components/studio/StudioAnalytics";
-import { StudioAuthorSettings } from "@/components/studio/StudioAuthorSettings";
-import { StudioVerification } from "@/components/studio/StudioVerification";
+import { StudioDashboard } from "../components/studio/StudioDashboard";
+import { StudioMyPrompts } from "../components/studio/StudioMyPrompts";
+import { StudioMySkills } from "../components/studio/StudioMySkills";
+import { StudioLibrary } from "../components/studio/StudioLibrary";
+import { StudioFinances } from "../components/studio/StudioFinances";
+import { StudioAnalytics } from "../components/studio/StudioAnalytics";
+import { StudioAuthorSettings } from "../components/studio/StudioAuthorSettings";
+import { StudioVerification } from "../components/studio/StudioVerification";
 import PromptGenerator from "@/pages/PromptGenerator";
+// ✅ Подключаем новый компонент
+import { StudioAITools } from "../components/studio/StudioAITools";
 
 const tabs = [
   { key: "main", label: "Главная" },
   { key: "prompts", label: "Мои промты" },
+  { key: "skills", label: "Мои скилы" },
   { key: "generator", label: "AI Генератор" },
   { key: "library", label: "Библиотека" },
   { key: "finances", label: "Финансы" },
   { key: "analytics", label: "Аналитика" },
   { key: "verification", label: "Верификация" },
+  { key: "ai_tools", label: "AI и Инструменты" }, // ✅ Добавлена вкладка
   { key: "author", label: "Настройки автора" },
 ];
 
@@ -59,11 +64,13 @@ export default function StudioPage() {
 
       {activeTab === "main" && <StudioDashboard />}
       {activeTab === "prompts" && <StudioMyPrompts />}
+      {activeTab === "skills" && <StudioMySkills />}
       {activeTab === "generator" && <PromptGenerator embedded />}
       {activeTab === "library" && <StudioLibrary />}
       {activeTab === "finances" && <StudioFinances />}
       {activeTab === "analytics" && <StudioAnalytics />}
       {activeTab === "verification" && <StudioVerification />}
+      {activeTab === "ai_tools" && <StudioAITools />} {/* ✅ Рендер компонента */}
       {activeTab === "author" && <StudioAuthorSettings />}
     </div>
   );

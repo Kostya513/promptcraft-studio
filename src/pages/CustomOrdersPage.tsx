@@ -3,15 +3,16 @@ import {
   Plus, Search, Filter, Send, Star, Clock, DollarSign, MessageSquare,
   Upload, X, Check, ChevronRight, Eye, FileText, AlertTriangle,
   Shield, User, ArrowRight, Paperclip, ThumbsUp, ThumbsDown, Flag,
-  CheckCircle, XCircle, RefreshCw, Lock, Download, BarChart3
+  CheckCircle, XCircle, RefreshCw, Lock, Download, BarChart3, Zap
 } from "lucide-react";
 
 type OrdersTab = "feed" | "my-orders" | "my-proposals" | "create";
-
+type OrderType = "prompt" | "skill" | "complex"; // 🔹 НОВОЕ: тип заказа
 type OrderStatus = "open" | "in_progress" | "review" | "revision" | "completed" | "disputed" | "cancelled";
 
 interface CustomOrder {
   id: string;
+  type: OrderType; // 🔹 НОВОЕ
   title: string;
   description: string;
   category: string;
@@ -83,6 +84,19 @@ const levelColors: Record<string, string> = {
   partner: "text-warning",
 };
 
+// 🔹 Типы заказов
+const orderTypeLabels: Record<OrderType, string> = {
+  prompt: "Промпт",
+  skill: "Скил",
+  complex: "Комплексное решение",
+};
+
+const orderTypeIcons: Record<OrderType, JSX.Element> = {
+  prompt: <FileText className="h-3 w-3" />,
+  skill: <Zap className="h-3 w-3" />,
+  complex: <CheckCircle className="h-3 w-3" />,
+};
+
 const categories = [
   "Текст и копирайтинг",
   "Визуал и дизайн",
@@ -93,19 +107,15 @@ const categories = [
   "Стиль жизни",
 ];
 
-// orders will be fetched from the backend
 const mockOrders: CustomOrder[] = [];
-
-// proposals loaded from backend
 const mockProposals: Proposal[] = [];
-
-// order chat messages from backend
 const mockMessages: OrderMessage[] = [];
 
 export default function CustomOrdersPage() {
   const [activeTab, setActiveTab] = useState<OrdersTab>("feed");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [orderTypeFilter, setOrderTypeFilter] = useState<OrderType | "all">("all"); // 🔹 НОВОЕ
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState<CustomOrder | null>(null);
   const [showProposalForm, setShowProposalForm] = useState(false);
@@ -114,6 +124,7 @@ export default function CustomOrdersPage() {
 
   // Create order form state
   const [orderForm, setOrderForm] = useState({
+    type: "prompt" as OrderType, // 🔹 НОВОЕ
     title: "",
     category: "",
     description: "",
@@ -149,15 +160,21 @@ export default function CustomOrdersPage() {
     { key: "create", label: "Создать заказ" },
   ];
 
+  // 🔹 Фильтрация с учётом типа
   const filteredOrders = mockOrders.filter((o) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       if (!o.title.toLowerCase().includes(q) && !o.description.toLowerCase().includes(q)) return false;
     }
     if (categoryFilter !== "all" && o.category !== categoryFilter) return false;
+    if (orderTypeFilter !== "all" && o.type !== orderTypeFilter) return false; // 🔹 НОВОЕ
     if (statusFilter !== "all" && o.status !== statusFilter) return false;
     return true;
   });
+
+  // 🔹 Счётчики для аналитики
+  const promptOrdersCount = mockOrders.filter(o => o.type === "prompt").length;
+  const skillOrdersCount = mockOrders.filter(o => o.type === "skill").length;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -187,8 +204,8 @@ export default function CustomOrdersPage() {
       {activeTab === "feed" && (
         <div className="space-y-4 animate-fade-in">
           {/* Search & filters */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
+          <div className="flex gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
@@ -198,6 +215,30 @@ export default function CustomOrdersPage() {
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
+            
+            {/* 🔹 Фильтр по типу заказа */}
+            <div className="flex bg-muted rounded-lg p-0.5">
+              {[
+                { key: "all", label: "Все" },
+                { key: "prompt", label: "Промпты", icon: <FileText className="h-3 w-3" /> },
+                { key: "skill", label: "Скилы", icon: <Zap className="h-3 w-3" /> },
+                { key: "complex", label: "Комплекс", icon: <CheckCircle className="h-3 w-3" /> },
+              ].map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setOrderTypeFilter(t.key as OrderType | "all")}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    orderTypeFilter === t.key
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t.icon}
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -214,7 +255,9 @@ export default function CustomOrdersPage() {
           <div className="space-y-3">
             {filteredOrders.length === 0 ? (
               <p className="text-center text-sm text-muted-foreground py-6">
-                Пока нет заказов. Попробуйте изменить фильтры или проверьте позже.
+                {orderTypeFilter === "all" 
+                  ? "Пока нет заказов. Попробуйте изменить фильтры или проверьте позже."
+                  : `Нет заказов типа "${orderTypeLabels[orderTypeFilter]}"`}
               </p>
             ) : (
               filteredOrders.map((order) => (
@@ -226,6 +269,17 @@ export default function CustomOrdersPage() {
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
+                        {/* 🔹 Бейдж типа заказа */}
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          order.type === "skill" 
+                            ? "bg-primary/10 text-primary" 
+                            : order.type === "complex"
+                            ? "bg-success/10 text-success"
+                            : "bg-gray-100 text-gray-700"
+                        }`}>
+                          {orderTypeIcons[order.type]}
+                          {orderTypeLabels[order.type]}
+                        </span>
                         <h3 className="font-medium text-sm">{order.title}</h3>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[order.status]}`}>
                           {statusLabels[order.status]}
@@ -280,7 +334,7 @@ export default function CustomOrdersPage() {
       {/* My Orders Tab */}
       {activeTab === "my-orders" && (
         <div className="space-y-4 animate-fade-in">
-          <div className="flex gap-2 mb-2">
+          <div className="flex gap-2 mb-2 flex-wrap">
             {(["all", "open", "in_progress", "review", "completed"] as const).map((s) => (
               <button
                 key={s}
@@ -310,7 +364,19 @@ export default function CustomOrdersPage() {
             return myFiltered.slice(0, 2).map((order) => (
               <div key={order.id} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium text-sm">{order.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      order.type === "skill" 
+                        ? "bg-primary/10 text-primary" 
+                        : order.type === "complex"
+                        ? "bg-success/10 text-success"
+                        : "bg-gray-100 text-gray-700"
+                    }`}>
+                      {orderTypeIcons[order.type]}
+                      {orderTypeLabels[order.type]}
+                    </span>
+                    <h3 className="font-medium text-sm">{order.title}</h3>
+                  </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[order.status]}`}>
                     {statusLabels[order.status]}
                   </span>
@@ -413,6 +479,36 @@ export default function CustomOrdersPage() {
       {activeTab === "create" && (
         <div className="max-w-2xl space-y-4 animate-fade-in">
           <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+            {/* 🔹 Выбор типа заказа */}
+            <div>
+              <label className="text-xs text-muted-foreground font-medium mb-2 block">Тип заказа *</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: "prompt", label: "Промпт", icon: <FileText className="h-4 w-4" />, desc: "Текстовый промт" },
+                  { key: "skill", label: "Скил", icon: <Zap className="h-4 w-4" />, desc: "Автоматизация" },
+                  { key: "complex", label: "Комплекс", icon: <CheckCircle className="h-4 w-4" />, desc: "Несколько элементов" },
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setOrderForm({ ...orderForm, type: t.key as OrderType })}
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      orderForm.type === t.key
+                        ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    <div className={`flex items-center gap-2 mb-1 ${
+                      orderForm.type === t.key ? "text-primary" : "text-muted-foreground"
+                    }`}>
+                      {t.icon}
+                      <span className="text-sm font-semibold">{t.label}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{t.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label className="text-xs text-muted-foreground font-medium">Название заказа *</label>
               <input
@@ -445,7 +541,11 @@ export default function CustomOrdersPage() {
               <textarea
                 value={orderForm.description}
                 onChange={(e) => setOrderForm({ ...orderForm, description: e.target.value })}
-                placeholder="Опишите задачу подробно: что должен делать промпт, для какой модели, какие результаты ожидаете... (мин. 50 символов)"
+                placeholder={
+                  orderForm.type === "skill"
+                    ? "Опишите бизнес-процесс: какие данные на входе, что должно происходить, какой результат на выходе..."
+                    : "Опишите задачу подробно: что должен делать промпт, для какой модели, какие результаты ожидаете... (мин. 50 символов)"
+                }
                 rows={5}
                 className="w-full mt-1 px-3 py-2.5 rounded-lg bg-background border border-border text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
@@ -531,6 +631,16 @@ export default function CustomOrdersPage() {
             <div className="space-y-4">
               <div>
                 <div className="flex items-center gap-2 mb-2">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    selectedOrder.type === "skill" 
+                      ? "bg-primary/10 text-primary" 
+                      : selectedOrder.type === "complex"
+                      ? "bg-success/10 text-success"
+                      : "bg-gray-100 text-gray-700"
+                  }`}>
+                    {orderTypeIcons[selectedOrder.type]}
+                    {orderTypeLabels[selectedOrder.type]}
+                  </span>
                   <h4 className="font-semibold">{selectedOrder.title}</h4>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[selectedOrder.status]}`}>
                     {statusLabels[selectedOrder.status]}
@@ -629,7 +739,10 @@ export default function CustomOrdersPage() {
             </div>
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-muted text-xs">
-                <p className="font-medium">{selectedOrder.title}</p>
+                <div className="flex items-center gap-1 mb-1">
+                  {orderTypeIcons[selectedOrder.type]}
+                  <span className="font-medium">{selectedOrder.title}</span>
+                </div>
                 <p className="text-muted-foreground mt-1">
                   Бюджет: {selectedOrder.budget.min.toLocaleString()} — {selectedOrder.budget.max.toLocaleString()} ₽
                 </p>

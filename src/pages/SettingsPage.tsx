@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { DataSettings } from "@/components/settings/DataSettings";
 
-const settingsTabs = ["Профиль", "Безопасность", "Подписка", "Данные"];
+const settingsTabs = ["Профиль", "Безопасность", "Подписка", "Уведомления", "Данные"];
 
 const connectedServices = [
   { id: "vk", name: "ВКонтакте", connected: true, desc: "Автопубликация постов и кросс-постинг" },
@@ -33,11 +33,8 @@ const roleOptions = [
   { value: "dev", label: "Разработчик" },
 ];
 
-const mockPaymentHistory = [
-  { id: "p1", date: "15 фев 2026", amount: "990 ₽", type: "Подписка PRO", receipt: true },
-  { id: "p2", date: "15 янв 2026", amount: "990 ₽", type: "Подписка PRO", receipt: true },
-  { id: "p3", date: "15 дек 2025", amount: "590 ₽", type: "Подписка PRO (скидка)", receipt: true },
-];
+// ✅ Убрали заглушку - теперь загружаем из localStorage
+// const mockPaymentHistory: any[] = [];
 
 const notificationChannels = [
   { key: "email" as const, label: "Email", desc: "Все уведомления на почту", icon: Mail },
@@ -66,9 +63,7 @@ const promoCodes: Record<string, { discount: number; expired?: boolean }> = {
   "EXPIRED2025": { discount: 20, expired: true },
 };
 
-// ✅ OPTIMIZATION: Утилита для сжатия и конвертации изображений
 const AvatarOptimizer = {
-  // Конвертация в WebP + сжатие
   compressImage: async (file: File, maxWidth: number = 400, quality: number = 0.8): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -76,41 +71,21 @@ const AvatarOptimizer = {
       
       img.onload = () => {
         URL.revokeObjectURL(url);
-        
-        // Вычисляем размеры с сохранением пропорций
         let { width, height } = img;
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
           width = maxWidth;
         }
-        
-        // Создаём canvas
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          reject(new Error('Canvas не поддерживается'));
-          return;
-        }
-        
-        // Рисуем изображение
+        if (!ctx) { reject(new Error('Canvas не поддерживается')); return; }
         ctx.drawImage(img, 0, 0, width, height);
-        
-        // Конвертируем в WebP
-        canvas.toBlob(
-          (blob) => {
-            canvas.remove();
-            if (blob) {
-              resolve(blob);
-            } else {
-              reject(new Error('Ошибка конвертации'));
-            }
-          },
-          'image/webp',
-          quality
-        );
+        canvas.toBlob((blob) => {
+          canvas.remove();
+          if (blob) { resolve(blob); } else { reject(new Error('Ошибка конвертации')); }
+        }, 'image/webp', quality);
       };
       
       img.onerror = () => {
@@ -122,12 +97,10 @@ const AvatarOptimizer = {
     });
   },
 
-  // Генерация thumbnail (50x50)
   generateThumbnail: async (file: File): Promise<Blob> => {
     return AvatarOptimizer.compressImage(file, 50, 0.7);
   },
 
-  // Кэш аватаров в localStorage
   cache: {
     set: (url: string, blob: Blob): void => {
       try {
@@ -137,7 +110,7 @@ const AvatarOptimizer = {
           localStorage.setItem(`avatar_cache_${url}`, JSON.stringify({
             data: base64,
             timestamp: Date.now(),
-            expiry: 7 * 24 * 60 * 60 * 1000 // 7 дней
+            expiry: 7 * 24 * 60 * 60 * 1000
           }));
         };
         reader.readAsDataURL(blob);
@@ -173,9 +146,9 @@ export default function SettingsPage() {
     if (stored) return stored;
     return "system";
   });
-  const [fontScale, setFontScale] = useState(() => {
-    const stored = localStorage.getItem("pf-font-scale");
-    return stored ? Number(stored) : 100;
+  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>(() => {
+    const stored = localStorage.getItem("pf-font-size");
+    return (stored as 'small' | 'medium' | 'large') || 'medium';
   });
   const [animations, setAnimations] = useState(() => {
     return localStorage.getItem("pf-animations") !== "false";
@@ -195,7 +168,6 @@ export default function SettingsPage() {
   const [deleteCustomReason, setDeleteCustomReason] = useState("");
   const [services, setServices] = useState(connectedServices);
 
-  // Profile form
   const [profileName, setProfileName] = useState(user.name || "");
   const [profileRole, setProfileRole] = useState(user.role);
   const [profileBio, setProfileBio] = useState(user.bio || "");
@@ -203,20 +175,17 @@ export default function SettingsPage() {
   const [profileTz, setProfileTz] = useState(user.timezone || "Europe/Moscow");
   const [socialLinks, setSocialLinks] = useState({ vk: "", telegram: "", github: "" });
 
-  // Avatar upload state
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Password change
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
 
-  // 2FA
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
   const [twoFAMethod, setTwoFAMethod] = useState<"app" | "sms">("app");
   const [showBackupCodes, setShowBackupCodes] = useState(false);
@@ -225,9 +194,14 @@ export default function SettingsPage() {
   const [twoFAPhone, setTwoFAPhone] = useState("");
   const backupCodes = ["A1B2-C3D4", "E5F6-G7H8", "I9J0-K1L2", "M3N4-O5P6", "Q7R8-S9T0", "U1V2-W3X4", "Y5Z6-A7B8", "C9D0-E1F2", "G3H4-I5J6", "K7L8-M9N0"];
 
-  // Subscription
-  const [currentPlan, setCurrentPlan] = useState("pro");
-  const [subscriptionEnd] = useState(new Date(2026, 2, 15));
+  // ✅ ИЗМЕНЕНО: Загружаем из localStorage или начальные значения
+  const [currentPlan, setCurrentPlan] = useState(() => {
+    return localStorage.getItem("subscription_plan") || "pro";
+  });
+  const [subscriptionEnd, setSubscriptionEnd] = useState(() => {
+    const stored = localStorage.getItem("subscription_end");
+    return stored ? new Date(stored) : new Date(2026, 2, 15);
+  });
   const [promoCode, setPromoCode] = useState("");
   const [promoStatus, setPromoStatus] = useState<null | "success" | "invalid" | "expired">(null);
   const [promoDiscount, setPromoDiscount] = useState(0);
@@ -235,26 +209,58 @@ export default function SettingsPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showDeletePaymentModal, setShowDeletePaymentModal] = useState<string | null>(null);
-  const [paymentMethods, setPaymentMethods] = useState<{ id: string; type: string; last4: string; status: string }[]>([
-    { id: "1", type: "Карта", last4: "4242", status: "Основной" },
-  ]);
+  
+  // ✅ ИЗМЕНЕНО: Загружаем способы оплаты из localStorage
+  const [paymentMethods, setPaymentMethods] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem("payment_methods");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  
   const [newCard, setNewCard] = useState({ number: "", expiry: "", cvv: "", name: "" });
 
-  // Notifications
+  // ✅ ИЗМЕНЕНО: Загружаем историю платежей из localStorage
+  const [paymentHistory, setPaymentHistory] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem("payment_history");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [notifChannels, setNotifChannels] = useState({ email: true, push: true, telegram: false, sms: false });
   const [notifEvents, setNotifEvents] = useState<Record<string, boolean>>({ financial: true, security: true, content: true, social: true, marketing: false });
   const [dndEnabled, setDndEnabled] = useState(false);
   const [dndFrom, setDndFrom] = useState("22:00");
   const [dndTo, setDndTo] = useState("08:00");
 
-  // Apply font scale
+  // ✅ Сохраняем способы оплаты в localStorage
   useEffect(() => {
-    document.documentElement.style.fontSize = `${fontScale}%`;
-    localStorage.setItem("pf-font-scale", String(fontScale));
-    return () => { document.documentElement.style.fontSize = ""; };
-  }, [fontScale]);
+    localStorage.setItem("payment_methods", JSON.stringify(paymentMethods));
+  }, [paymentMethods]);
 
-  // Apply animations
+  // ✅ Сохраняем историю платежей в localStorage
+  useEffect(() => {
+    localStorage.setItem("payment_history", JSON.stringify(paymentHistory));
+  }, [paymentHistory]);
+
+  // ✅ Сохраняем подписку в localStorage
+  useEffect(() => {
+    localStorage.setItem("subscription_plan", currentPlan);
+    localStorage.setItem("subscription_end", subscriptionEnd.toISOString());
+  }, [currentPlan, subscriptionEnd]);
+
+  useEffect(() => {
+    const sizes = { small: '14px', medium: '16px', large: '18px' };
+    document.documentElement.style.fontSize = sizes[fontSize];
+    localStorage.setItem("pf-font-size", fontSize);
+    return () => { document.documentElement.style.fontSize = ""; };
+  }, [fontSize]);
+
   useEffect(() => {
     localStorage.setItem("pf-animations", String(animations));
     if (!animations) {
@@ -264,14 +270,19 @@ export default function SettingsPage() {
     }
   }, [animations]);
 
-  // System theme listener
   useEffect(() => {
     const applyTheme = (t: string) => {
-      if (t === "dark") document.documentElement.classList.add("dark");
-      else if (t === "light") document.documentElement.classList.remove("dark");
-      else {
-        const pd = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.classList.toggle("dark", pd);
+      if (t === "dark") {
+        document.documentElement.classList.add("dark");
+      } else if (t === "light") {
+        document.documentElement.classList.remove("dark");
+      } else {
+        const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        if (isDark) {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
       }
       localStorage.setItem("pf-theme", t);
     };
@@ -280,14 +291,17 @@ export default function SettingsPage() {
     if (theme === "system") {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
       const handler = (e: MediaQueryListEvent) => {
-        document.documentElement.classList.toggle("dark", e.matches);
+        if (e.matches) {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
       };
       mq.addEventListener("change", handler);
       return () => mq.removeEventListener("change", handler);
     }
   }, [theme]);
 
-  // Cleanup avatar preview URL
   useEffect(() => {
     return () => {
       if (avatarPreview && avatarPreview.startsWith('blob:')) {
@@ -324,8 +338,6 @@ export default function SettingsPage() {
     showSaveToast("Профиль сохранён");
   };
 
-  // === OPTIMIZED AVATAR UPLOAD FUNCTIONS ===
-  
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
@@ -345,18 +357,15 @@ export default function SettingsPage() {
     }
 
     try {
-      // ✅ OPTIMIZATION: Сжатие и конвертация в WebP
       setIsUploading(true);
       setUploadProgress(30);
       
       const compressedBlob = await AvatarOptimizer.compressImage(file, 400, 0.85);
       setUploadProgress(70);
       
-      // Создаём preview из сжатого Blob
       const previewUrl = URL.createObjectURL(compressedBlob);
       setAvatarPreview(previewUrl);
       
-      // Создаём новый File из Blob для отправки
       const optimizedFile = new File([compressedBlob], file.name.replace(/\.[^.]+$/, '.webp'), {
         type: 'image/webp',
         lastModified: Date.now()
@@ -369,7 +378,6 @@ export default function SettingsPage() {
       
     } catch (error: any) {
       console.error('Avatar optimization error:', error);
-      // Fallback: используем оригинальный файл
       setAvatarFile(file);
       const previewUrl = URL.createObjectURL(file);
       setAvatarPreview(previewUrl);
@@ -397,7 +405,7 @@ export default function SettingsPage() {
 
       const formData = new FormData();
       formData.append('avatar', avatarFile);
-      formData.append('format', 'webp'); // Указываем формат
+      formData.append('format', 'webp');
 
       console.log('📤 Загрузка оптимизированного аватара...');
       setUploadProgress(40);
@@ -420,12 +428,10 @@ export default function SettingsPage() {
       
       console.log('✅ Аватар загружен:', data.avatar_url);
       
-      // Создаём полный URL
       const fullAvatarUrl = data.avatar_url.startsWith('http') 
         ? data.avatar_url 
         : `http://localhost:3000${data.avatar_url}`;
       
-      // ✅ OPTIMIZATION: Кэшируем аватар
       if (avatarPreview) {
         fetch(avatarPreview)
           .then(res => res.blob())
@@ -433,7 +439,6 @@ export default function SettingsPage() {
           .catch(() => {});
       }
       
-      // Обновляем UserContext
       const updatedUser = { 
         ...user, 
         avatar: fullAvatarUrl,
@@ -442,7 +447,6 @@ export default function SettingsPage() {
       };
       setUser(updatedUser);
       
-      // Обновляем localStorage (promptcraft_user)
       const storedUser = localStorage.getItem('promptcraft_user');
       if (storedUser) {
         const parsed = JSON.parse(storedUser);
@@ -452,7 +456,6 @@ export default function SettingsPage() {
         localStorage.setItem('promptcraft_user', JSON.stringify(parsed));
       }
       
-      // Обновляем localStorage (promptcraft_context)
       const contextStorage = localStorage.getItem('promptcraft_context');
       if (contextStorage) {
         const parsed = JSON.parse(contextStorage);
@@ -466,7 +469,6 @@ export default function SettingsPage() {
 
       toast({ title: "Аватар обновлён", description: "Новое изображение сохранено в формате WebP" });
       
-      // Очищаем состояние
       setAvatarFile(null);
       if (avatarPreview?.startsWith('blob:')) {
         URL.revokeObjectURL(avatarPreview);
@@ -503,7 +505,6 @@ export default function SettingsPage() {
     setUploadProgress(0);
   };
 
-  // ✅ OPTIMIZATION: Компонент для отображения аватара с кэшем и lazy loading
   const AvatarImage: React.FC<{ src: string; alt: string; size?: 'small' | 'medium' | 'large'; className?: string }> = ({ src, alt, size = 'medium', className = '' }) => {
     const [cachedSrc, setCachedSrc] = useState<string | null>(null);
     const [loaded, setLoaded] = useState(false);
@@ -515,7 +516,6 @@ export default function SettingsPage() {
     };
 
     useEffect(() => {
-      // Пытаемся получить из кэша
       const cached = AvatarOptimizer.cache.get(src);
       if (cached) {
         setCachedSrc(cached);
@@ -525,7 +525,6 @@ export default function SettingsPage() {
 
     const handleLoad = () => {
       setLoaded(true);
-      // Кэшируем после успешной загрузки
       if (!cachedSrc) {
         fetch(src)
           .then(res => res.blob())
@@ -555,8 +554,8 @@ export default function SettingsPage() {
     const exportData = {
       profile: { name: user.name, email: user.email, role: user.role, bio: user.bio, language: user.language, timezone: user.timezone },
       stats: { prompts: user.promptsCount, purchases: user.purchasesCount, services: user.servicesCount },
-      settings: { theme, fontScale, animations, notifications: { channels: notifChannels, events: notifEvents, dnd: { enabled: dndEnabled, from: dndFrom, to: dndTo } } },
-      purchases: mockPaymentHistory,
+      settings: { theme, fontSize, animations, notifications: { channels: notifChannels, events: notifEvents, dnd: { enabled: dndEnabled, from: dndFrom, to: dndTo } } },
+      purchases: paymentHistory,
       exportDate: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
@@ -584,13 +583,20 @@ export default function SettingsPage() {
     }
   };
 
+  // ✅ ИЗМЕНЕНО: Добавление карты с сохранением
   const handleAddPayment = () => {
     if (!newCard.number || !newCard.expiry || !newCard.cvv) {
       toast({ title: "Заполните все обязательные поля", variant: "destructive", duration: 5000 });
       return;
     }
     const last4 = newCard.number.replace(/\s/g, "").slice(-4);
-    setPaymentMethods(prev => [...prev.map(p => ({ ...p, status: "Резервный" })), { id: Date.now().toString(), type: "Карта", last4, status: "Основной" }]);
+    const newPaymentMethod = { 
+      id: Date.now().toString(), 
+      type: "Карта", 
+      last4, 
+      status: paymentMethods.length === 0 ? "Основной" : "Резервный" 
+    };
+    setPaymentMethods(prev => [...prev.map(p => ({ ...p, status: "Резервный" })), newPaymentMethod]);
     setShowAddPaymentModal(false);
     setNewCard({ number: "", expiry: "", cvv: "", name: "" });
     showSaveToast("Карта добавлена");
@@ -602,10 +608,32 @@ export default function SettingsPage() {
     showSaveToast("Способ оплаты удалён");
   };
 
+  // ✅ ИЗМЕНЕНО: Смена плана с записью в историю
   const handleChangePlan = (planKey: string) => {
+    const plan = plans.find(p => p.key === planKey);
+    if (!plan) return;
+    
     setCurrentPlan(planKey);
+    
+    // Добавляем запись в историю платежей
+    const newPayment = {
+      id: `p${Date.now()}`,
+      date: new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }),
+      amount: `${plan.price} ₽`,
+      type: `Подписка ${plan.name}${promoDiscount > 0 ? ` (скидка ${promoDiscount}%)` : ''}`,
+      receipt: true
+    };
+    
+    setPaymentHistory(prev => [newPayment, ...prev]);
+    
+    // Обновляем дату окончания подписки
+    const newEndDate = new Date();
+    newEndDate.setMonth(newEndDate.getMonth() + 1);
+    setSubscriptionEnd(newEndDate);
+    
     setShowChangePlanModal(false);
-    toast({ title: `Тариф изменён на ${plans.find(p => p.key === planKey)?.name}`, duration: 3000 });
+    setPromoDiscount(0);
+    toast({ title: `Тариф изменён на ${plan.name}`, description: "Оплата произведена успешно", duration: 3000 });
   };
 
   const handleCancelSubscription = () => {
@@ -613,9 +641,40 @@ export default function SettingsPage() {
     toast({ title: "Подписка отменена", description: "Доступ сохранится до конца оплаченного периода", duration: 5000 });
   };
 
+  // ✅ ИЗМЕНЕНО: Продление подписки с записью в историю
+  const handleRenewSubscription = () => {
+    const plan = plans.find(p => p.key === currentPlan);
+    if (!plan) return;
+    
+    const amount = promoDiscount > 0 
+      ? Math.round(plan.price * (100 - promoDiscount) / 100)
+      : plan.price;
+    
+    // Добавляем запись в историю
+    const newPayment = {
+      id: `p${Date.now()}`,
+      date: new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }),
+      amount: `${amount} ₽`,
+      type: `Продление ${plan.name}${promoDiscount > 0 ? ` (скидка ${promoDiscount}%)` : ''}`,
+      receipt: true
+    };
+    
+    setPaymentHistory(prev => [newPayment, ...prev]);
+    
+    // Обновляем дату окончания
+    const newEndDate = new Date();
+    newEndDate.setMonth(newEndDate.getMonth() + 1);
+    setSubscriptionEnd(newEndDate);
+    
+    setPromoDiscount(0);
+    toast({ title: "Подписка продлена", description: `Оплачено ${amount} ₽`, duration: 3000 });
+  };
+
   const handleDownloadReceipt = (paymentId: string) => {
-    const payment = mockPaymentHistory.find(p => p.id === paymentId);
-    const content = `КАССОВЫЙ ЧЕК\n\nООО «ПромптФордж»\nИНН: 7712345678\nДата: ${payment?.date}\nУслуга: ${payment?.type}\nСумма: ${payment?.amount}\nНДС 20%: ${Math.round(parseInt(payment?.amount || "0") * 0.2)} ₽\n\nФН: 9999078900012345\nФД: 1234567890\nФП: 0987654321\n\nСпасибо за покупку!`;
+    const payment = paymentHistory.find((p: any) => p.id === paymentId);
+    if (!payment) return;
+    
+    const content = `КАССОВЫЙ ЧЕК\n\nООО «ПромптФордж»\nИНН: 7712345678\nДата: ${payment.date}\nУслуга: ${payment.type}\nСумма: ${payment.amount}\nНДС 20%: ${Math.round(parseInt(payment.amount) * 0.2)} ₽\n\nФН: 9999078900012345\nФД: 1234567890\nФП: 0987654321\n\nСпасибо за покупку!`;
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -674,7 +733,6 @@ export default function SettingsPage() {
     <div className="max-w-3xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">Настройки</h1>
 
-      {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto pb-px -mx-4 px-4 md:mx-0 md:px-0">
         {settingsTabs.map(t => (
           <button key={t} onClick={() => setActiveTab(t)} className={`pb-3 px-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === t ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"}`}>
@@ -683,7 +741,6 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {/* ── Профиль ── */}
       {activeTab === "Профиль" && (
         <div className="space-y-6 animate-fade-in">
           <div className="bg-card rounded-xl border border-border p-5">
@@ -700,9 +757,11 @@ export default function SettingsPage() {
                       className="h-full w-full object-cover"
                       loading="lazy"
                     />
-                  ) : user.avatar ? (
-                    // ✅ OPTIMIZATION: Используем AvatarImage с кэшем
-                    <AvatarImage src={user.avatar} alt="avatar" />
+                  ) : user.avatar && user.avatar.trim() !== '' ? (
+                    <AvatarImage 
+                      src={user.avatar.startsWith('http') ? user.avatar : `http://localhost:3000${user.avatar}`} 
+                      alt="avatar" 
+                    />
                   ) : (
                     profileName ? profileName[0].toUpperCase() : user.email[0].toUpperCase()
                   )}
@@ -757,12 +816,6 @@ export default function SettingsPage() {
             </div>
             <div className="grid sm:grid-cols-2 gap-3 mt-3">
               <div>
-                <label className="text-xs text-muted-foreground">Основной рабочий язык</label>
-                <select value={profileLang} onChange={e => setProfileLang(e.target.value)} className={`${inputCls} mt-1`}>
-                  <option>Русский</option><option>English</option>
-                </select>
-              </div>
-              <div>
                 <label className="text-xs text-muted-foreground">Часовой пояс</label>
                 <select value={profileTz} onChange={e => setProfileTz(e.target.value)} className={`${inputCls} mt-1`}>
                   <option value="Europe/Moscow">Москва (UTC+3)</option>
@@ -777,6 +830,73 @@ export default function SettingsPage() {
               <div><label className="text-xs text-muted-foreground">Telegram</label><input value={socialLinks.telegram} onChange={e => setSocialLinks(p => ({ ...p, telegram: e.target.value }))} placeholder="@username" className={`${inputCls} mt-1`} /></div>
               <div><label className="text-xs text-muted-foreground">GitHub</label><input value={socialLinks.github} onChange={e => setSocialLinks(p => ({ ...p, github: e.target.value }))} placeholder="github.com/..." className={`${inputCls} mt-1`} /></div>
             </div>
+
+            <h3 className="font-semibold text-sm mt-5 mb-3">Внешний вид</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground mb-2 block">Тема оформления</label>
+                <div className="flex gap-2">
+                  {[
+                    { key: "light", label: "Светлая", icon: Sun },
+                    { key: "dark", label: "Тёмная", icon: Moon },
+                    { key: "system", label: "Системная", icon: Monitor },
+                  ].map(({ key, label, icon: Icon }) => (
+                    <button 
+                      key={key} 
+                      onClick={() => { setTheme(key); showSaveToast(`Тема: ${label}`); }} 
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all text-sm ${
+                        theme === key 
+                          ? "border-primary bg-primary/5 text-primary" 
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" /> {label}
+                    </button>
+                  ))}
+                </div>
+                {theme === "system" && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Тема определяется настройками вашей ОС. Если система переключилась на тёмную, а тема не изменилась — обновите страницу.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs text-muted-foreground mb-2 block">Размер шрифта</label>
+                <div className="flex gap-2">
+                  {[
+                    { key: "small", label: "Мелкий", desc: "14px" },
+                    { key: "medium", label: "Средний", desc: "16px" },
+                    { key: "large", label: "Крупный", desc: "18px" },
+                  ].map(({ key, label, desc }) => (
+                    <button 
+                      key={key} 
+                      onClick={() => { setFontSize(key as any); showSaveToast(`Шрифт: ${label}`); }} 
+                      className={`flex-1 py-2 rounded-lg border transition-all text-sm ${
+                        fontSize === key 
+                          ? "border-primary bg-primary/5 text-primary" 
+                          : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <span className="font-medium">{label}</span>
+                      <span className="text-[10px] text-muted-foreground block">{desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div>
+                  <h4 className="text-sm font-medium">Анимации</h4>
+                  <p className="text-xs text-muted-foreground">Отключите для повышения производительности</p>
+                </div>
+                <Switch 
+                  checked={animations} 
+                  onCheckedChange={(val) => { setAnimations(val); showSaveToast(val ? "Анимации включены" : "Анимации отключены"); }} 
+                />
+              </div>
+            </div>
+
             <button onClick={handleSaveProfile} className="mt-4 px-6 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity">Сохранить</button>
           </div>
 
@@ -802,7 +922,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── Безопасность ── */}
       {activeTab === "Безопасность" && (
         <div className="space-y-6 animate-fade-in">
           <div className="bg-card rounded-xl border border-border p-5">
@@ -938,7 +1057,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── Подписка ── */}
       {activeTab === "Подписка" && (
         <div className="space-y-6 animate-fade-in">
           <div className="bg-card rounded-xl border border-border p-5">
@@ -965,7 +1083,7 @@ export default function SettingsPage() {
             </div>
             {promoDiscount > 0 && <p className="text-sm text-success mb-3">Скидка {promoDiscount}% активна</p>}
             <div className="flex gap-2 flex-wrap">
-              <button onClick={() => toast({ title: "Перенаправление на оплату", description: "Подписка будет продлена" })} className="px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">Продлить</button>
+              <button onClick={handleRenewSubscription} className="px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">Продлить</button>
               <button onClick={() => setShowChangePlanModal(true)} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Сменить план</button>
               <button onClick={() => setShowCancelModal(true)} className="px-4 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/5 transition-colors">Отменить подписку</button>
             </div>
@@ -995,20 +1113,28 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* ✅ ИЗМЕНЕНО: Убрали заглушку - теперь реальные данные */}
           <div className="bg-card rounded-xl border border-border p-5">
             <h3 className="font-semibold text-sm mb-3">Способы оплаты</h3>
-            {paymentMethods.map(pm => (
-              <div key={pm.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-                <div className="flex items-center gap-3">
-                  <CreditCard className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <span className="text-sm font-medium">{pm.type} •••• {pm.last4}</span>
-                    <span className={`text-xs ml-2 ${pm.status === "Основной" ? "text-primary" : "text-muted-foreground"}`}>{pm.status}</span>
-                  </div>
-                </div>
-                <button onClick={() => setShowDeletePaymentModal(pm.id)} className="text-xs text-destructive hover:underline">Удалить</button>
+            {paymentMethods.length === 0 ? (
+              <div className="text-center py-8">
+                <CreditCard className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Нет сохранённых способов оплаты</p>
               </div>
-            ))}
+            ) : (
+              paymentMethods.map(pm => (
+                <div key={pm.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-sm font-medium">{pm.type} •••• {pm.last4}</span>
+                      <span className={`text-xs ml-2 ${pm.status === "Основной" ? "text-primary" : "text-muted-foreground"}`}>{pm.status}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowDeletePaymentModal(pm.id)} className="text-xs text-destructive hover:underline">Удалить</button>
+                </div>
+              ))
+            )}
             <button onClick={() => setShowAddPaymentModal(true)} className="mt-3 text-sm text-primary hover:underline flex items-center gap-1">+ Добавить способ оплаты</button>
           </div>
 
@@ -1023,37 +1149,44 @@ export default function SettingsPage() {
             {promoStatus === "expired" && <p className="text-xs text-warning mt-2">⚠ Срок действия промокода истёк</p>}
           </div>
 
+          {/* ✅ ИЗМЕНЕНО: Убрали заглушку - теперь реальные данные */}
           <div className="bg-card rounded-xl border border-border p-5">
             <h3 className="font-semibold text-sm mb-3">История платежей</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 text-xs text-muted-foreground font-medium">Название</th>
-                    <th className="text-left py-2 text-xs text-muted-foreground font-medium">Дата</th>
-                    <th className="text-right py-2 text-xs text-muted-foreground font-medium">Сумма</th>
-                    <th className="text-right py-2 text-xs text-muted-foreground font-medium">Чек</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mockPaymentHistory.map(p => (
-                    <tr key={p.id} className="border-b border-border/50 last:border-0">
-                      <td className="py-2.5 font-medium">{p.type}</td>
-                      <td className="py-2.5 text-muted-foreground">{p.date}</td>
-                      <td className="py-2.5 text-right font-medium">{p.amount}</td>
-                      <td className="py-2.5 text-right">
-                        {p.receipt && <button onClick={() => handleDownloadReceipt(p.id)} className="text-xs text-primary hover:underline flex items-center gap-1 ml-auto"><Receipt className="h-3 w-3" /> Скачать</button>}
-                      </td>
+            {paymentHistory.length === 0 ? (
+              <div className="text-center py-8">
+                <Receipt className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">История платежей пуста</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 text-xs text-muted-foreground font-medium">Название</th>
+                      <th className="text-left py-2 text-xs text-muted-foreground font-medium">Дата</th>
+                      <th className="text-right py-2 text-xs text-muted-foreground font-medium">Сумма</th>
+                      <th className="text-right py-2 text-xs text-muted-foreground font-medium">Чек</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {paymentHistory.map((p) => (
+                      <tr key={p.id} className="border-b border-border/50 last:border-0">
+                        <td className="py-2.5 font-medium">{p.type}</td>
+                        <td className="py-2.5 text-muted-foreground">{p.date}</td>
+                        <td className="py-2.5 text-right font-medium">{p.amount}</td>
+                        <td className="py-2.5 text-right">
+                          {p.receipt && <button onClick={() => handleDownloadReceipt(p.id)} className="text-xs text-primary hover:underline flex items-center gap-1 ml-auto"><Receipt className="h-3 w-3" /> Скачать</button>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* ── Уведомления ── */}
       {activeTab === "Уведомления" && (
         <div className="space-y-6 animate-fade-in">
           <div className="bg-card rounded-xl border border-border p-5">
@@ -1113,68 +1246,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── Интерфейс ── */}
-      {activeTab === "Интерфейс" && (
-        <div className="space-y-6 animate-fade-in">
-          <div className="bg-card rounded-xl border border-border p-5">
-            <h3 className="font-semibold text-sm mb-3">Тема оформления</h3>
-            <div className="flex gap-3">
-              {[
-                { key: "light", label: "Светлая", icon: Sun },
-                { key: "dark", label: "Тёмная", icon: Moon },
-                { key: "system", label: "Системная", icon: Monitor },
-              ].map(({ key, label, icon: Icon }) => (
-                <button key={key} onClick={() => { setTheme(key); showSaveToast(`Тема: ${label}`); }} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border transition-all hover:bg-muted/50 ${theme === key ? "border-primary bg-primary/5" : "border-border"}`}>
-                  <Icon className="h-4 w-4" /> <span className="text-sm font-medium">{label}</span>
-                </button>
-              ))}
-            </div>
-            {theme === "system" && <p className="text-xs text-muted-foreground mt-2">Тема определяется настройками вашей ОС через CSS prefers-color-scheme</p>}
-          </div>
-          <div className="bg-card rounded-xl border border-border p-5">
-            <h3 className="font-semibold text-sm mb-3">Язык интерфейса</h3>
-            <div className="flex gap-3">
-              {[{ key: "Русский", label: "🇷🇺 Русский" }, { key: "English", label: "🇬🇧 English" }].map(lang => (
-                <button key={lang.key} onClick={() => { setProfileLang(lang.key); showSaveToast(`Язык: ${lang.key}`); }} className={`flex-1 py-3 rounded-xl border transition-all text-sm font-medium hover:bg-muted/50 ${profileLang === lang.key ? "border-primary bg-primary/5" : "border-border"}`}>
-                  {lang.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-sm">Размер шрифта</h3>
-              <span className="text-sm font-bold text-primary">{fontScale}%</span>
-            </div>
-            <Slider
-              value={[fontScale]}
-              onValueChange={([v]) => setFontScale(v)}
-              onValueCommit={() => showSaveToast(`Размер шрифта: ${fontScale}%`)}
-              min={80}
-              max={150}
-              step={10}
-              className="mb-2"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>80%</span>
-              <span>100%</span>
-              <span>150%</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2" style={{ fontSize: `${fontScale * 0.12}px` }}>Пример текста с текущим размером шрифта</p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-sm">Анимации</h3>
-                <p className="text-xs text-muted-foreground mt-1">Отключите для повышения производительности</p>
-              </div>
-              <Switch checked={animations} onCheckedChange={(val) => { setAnimations(val); showSaveToast(val ? "Анимации включены" : "Анимации отключены"); }} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Данные ── */}
       {activeTab === "Данные" && (
         <div className="space-y-4 animate-fade-in">
           <div className="bg-card rounded-xl border border-border p-5">
@@ -1234,7 +1305,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ── MODALS ── */}
       {showChangePlanModal && (
         <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowChangePlanModal(false)}>
           <div className="bg-card rounded-2xl border border-border p-6 max-w-lg w-full shadow-elevated" onClick={e => e.stopPropagation()}>
