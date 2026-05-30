@@ -110,7 +110,7 @@ export default function PublishPromptPage() {
   const handleTagChange = (newTags: string[]) => {
     setAgentTags(newTags);
     if (newTags.length > 0) {
-      const classification = classifyContent(newTags, description, contentType);
+      const classification = classifyContent(newTags, description, contentType === "agent" ? "prompt" : contentType);
       setLibraryClass(classification.classId);
       setLibraryGroup(classification.groupId);
       setClassificationConfidence(classification.confidence);
