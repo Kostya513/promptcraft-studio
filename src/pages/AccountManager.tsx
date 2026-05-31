@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom"; // 🔹 Добавляем useNavigate
 import { AccountDashboard } from "../components/account-manager/AccountDashboard";
 import { AccountProfiles } from "../components/account-manager/AccountProfiles";
 import { AccountsList } from "../components/account-manager/AccountsList";
@@ -6,7 +7,8 @@ import { AccountSecurity } from "../components/account-manager/AccountSecurity";
 import { SubscriptionsCalendar } from "../components/account-manager/SubscriptionsCalendar";
 import { AccountSkillsIntegrations } from "../components/account-manager/AccountSkillsIntegrations";
 import { MasterPasswordModal } from "../components/account-manager/MasterPasswordModal";
-import { Lock } from "lucide-react";
+import { ProfileGenerator } from "../components/account-manager/ProfileGenerator";
+import { Lock, Bot } from "lucide-react";
 
 const tabs = [
   { key: "dashboard", label: "Обзор" },
@@ -14,15 +16,19 @@ const tabs = [
   { key: "accounts", label: "Аккаунты" },
   { key: "subscriptions", label: "Подписки" },
   { key: "skills", label: "⚡ Скилы" },
+  { key: "prompts", label: "📝 Промты" }, // 🔹 НОВАЯ ВКЛАДКА
+  { key: "agents", label: "🤖 Агенты" }, // 🔹 НОВАЯ ВКЛАДКА
   { key: "security", label: "Безопасность" },
 ];
 
 export default function AccountManager() {
+  const navigate = useNavigate(); // 🔹 Добавляем navigate
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showAccountsForm, setShowAccountsForm] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(true);
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
+  const [showProfileGenerator, setShowProfileGenerator] = useState(false); // 🔹 Для генератора профиля
 
   useEffect(() => {
     const stored = localStorage.getItem("master_password_hash");
@@ -32,6 +38,18 @@ export default function AccountManager() {
   const handleDashboardAdd = () => {
     setActiveTab("accounts");
     setShowAccountsForm(true);
+  };
+
+  // 🔹 Обработчик для генерации профиля
+  const handleGenerateProfile = () => {
+    setShowProfileGenerator(true);
+  };
+
+  // 🔹 Сохранение сгенерированного профиля
+  const handleSaveGeneratedProfile = (profile: { name: string; email: string; password: string }) => {
+    console.log("📝 Сохранение сгенерированного профиля:", profile);
+    // Здесь будет логика сохранения в AccountsList
+    setShowProfileGenerator(false);
   };
 
   const handleUnlock = (key: CryptoKey) => {
@@ -85,6 +103,13 @@ export default function AccountManager() {
         onSetup={handleSetup}
       />
       
+      {/* 🔹 Модал генератора профиля */}
+      <ProfileGenerator
+        open={showProfileGenerator}
+        onClose={() => setShowProfileGenerator(false)}
+        onSave={handleSaveGeneratedProfile}
+      />
+      
       <div className="max-w-5xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-bold">Менеджер аккаунтов</h1>
@@ -114,7 +139,12 @@ export default function AccountManager() {
           ))}
         </div>
 
-        {activeTab === "dashboard" && <AccountDashboard onAdd={handleDashboardAdd} />}
+        {activeTab === "dashboard" && (
+          <AccountDashboard 
+            onAdd={handleDashboardAdd} 
+            onGenerateProfile={handleGenerateProfile} // 🔹 Передаём обработчик
+          />
+        )}
         {activeTab === "profiles" && <AccountProfiles />}
         {activeTab === "accounts" && (
           <AccountsList
@@ -124,7 +154,28 @@ export default function AccountManager() {
           />
         )}
         {activeTab === "subscriptions" && <SubscriptionsCalendar />}
-        {activeTab === "skills" && <AccountSkillsIntegrations cryptoKey={cryptoKey} />}
+        {activeTab === "skills" && (
+          <AccountSkillsIntegrations 
+            cryptoKey={cryptoKey}
+            onAddSkill={() => navigate("/studio?tab=skills&create=true")} // 🔹 Передаём обработчик
+            onGoToLibrary={() => navigate("/library?filter=skills")} // 🔹 Передаём обработчик
+            onGoToStudio={() => navigate("/studio?tab=skills")} // 🔹 Передаём обработчик
+          />
+        )}
+        {activeTab === "prompts" && (
+          <div className="text-center py-20">
+            <Bot className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Раздел "Промты" в разработке</h3>
+            <p className="text-sm text-muted-foreground">Здесь будут ваши промпты и их привязка к аккаунтам</p>
+          </div>
+        )}
+        {activeTab === "agents" && (
+          <div className="text-center py-20">
+            <Bot className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Раздел "Агенты" в разработке</h3>
+            <p className="text-sm text-muted-foreground">Здесь можно будет подключить AI-агентов к сервисам</p>
+          </div>
+        )}
         {activeTab === "security" && <AccountSecurity />}
       </div>
     </>

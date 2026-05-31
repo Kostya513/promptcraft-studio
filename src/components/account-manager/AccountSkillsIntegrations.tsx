@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { Zap, ToggleLeft, ToggleRight, Settings, Link2, Webhook, Activity, Shield, Users, Plus, Copy } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { 
+  Zap, ToggleLeft, ToggleRight, Settings, Link2, Webhook, 
+  Activity, Shield, Users, Plus, Copy, Bot, FileText 
+} from "lucide-react";
 
 // 🔹 Типы данных
 type SkillConnection = {
@@ -30,29 +34,36 @@ type UsageLog = {
   tokensUsed: number;
 };
 
-// 🔹 Массивы с данными — ТЕПЕРЬ ПУСТЫЕ (демо удалено)
+// 🔹 Пустые массивы (данные будут загружаться из API)
 const MOCK_SKILLS: SkillConnection[] = [];
 const MOCK_INTEGRATIONS: IntegrationConfig[] = [];
 const MOCK_LOGS: UsageLog[] = [];
 
 interface AccountSkillsIntegrationsProps {
   cryptoKey: CryptoKey | null;
+  onAddSkill?: () => void;
+  onGoToLibrary?: () => void;
+  onGoToStudio?: () => void;
 }
 
-export function AccountSkillsIntegrations({ cryptoKey }: AccountSkillsIntegrationsProps) {
+export function AccountSkillsIntegrations({ 
+  cryptoKey, 
+  onAddSkill, 
+  onGoToLibrary, 
+  onGoToStudio 
+}: AccountSkillsIntegrationsProps) {
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<"skills" | "integrations" | "logs" | "limits">("skills");
   const [skills, setSkills] = useState<SkillConnection[]>(MOCK_SKILLS);
   const [integrations, setIntegrations] = useState<IntegrationConfig[]>(MOCK_INTEGRATIONS);
   const [logs] = useState<UsageLog[]>(MOCK_LOGS);
 
-  // Переключение статуса скила
   const toggleSkill = (id: string) => {
     setSkills((prev) =>
       prev.map((s) => (s.id === id ? { ...s, isActive: !s.isActive } : s))
     );
   };
 
-  // Копирование конфига
   const copyConfig = (text: string) => {
     navigator.clipboard.writeText(text);
   };
@@ -63,6 +74,30 @@ export function AccountSkillsIntegrations({ cryptoKey }: AccountSkillsIntegratio
     { key: "logs", label: "Логи использования", icon: <Activity className="h-4 w-4" /> },
     { key: "limits", label: "Лимиты и доступ", icon: <Shield className="h-4 w-4" /> },
   ];
+
+  const handleAddSkill = () => {
+    if (onAddSkill) {
+      onAddSkill();
+    } else {
+      navigate("/studio?tab=skills&create=true");
+    }
+  };
+
+  const handleGoToLibrary = () => {
+    if (onGoToLibrary) {
+      onGoToLibrary();
+    } else {
+      navigate("/library?filter=skills");
+    }
+  };
+
+  const handleGoToStudio = () => {
+    if (onGoToStudio) {
+      onGoToStudio();
+    } else {
+      navigate("/studio?tab=skills");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -77,7 +112,10 @@ export function AccountSkillsIntegrations({ cryptoKey }: AccountSkillsIntegratio
             Управляйте активными процессами и внешними подключениями
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
+        <button 
+          onClick={handleAddSkill}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+        >
           <Plus className="h-4 w-4" /> Добавить скил
         </button>
       </div>
@@ -114,10 +152,16 @@ export function AccountSkillsIntegrations({ cryptoKey }: AccountSkillsIntegratio
                 или создайте свой через Studio.
               </p>
               <div className="flex justify-center gap-3">
-                <button className="px-5 py-2.5 border border-border bg-card hover:bg-muted rounded-lg text-sm font-medium transition-colors">
+                <button 
+                  onClick={handleGoToLibrary}
+                  className="px-5 py-2.5 border border-border bg-card hover:bg-muted rounded-lg text-sm font-medium transition-colors"
+                >
                   Перейти в Библиотеку
                 </button>
-                <button className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
+                <button 
+                  onClick={handleGoToStudio}
+                  className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+                >
                   Создать в Studio
                 </button>
               </div>

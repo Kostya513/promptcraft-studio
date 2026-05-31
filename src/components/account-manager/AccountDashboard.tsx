@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Vault, CreditCard, ShieldAlert, Send, ShieldCheck,
-  Plus, UserPlus, AlertTriangle, CheckCircle
+  Plus, UserPlus, AlertTriangle, CheckCircle, Bot
 } from "lucide-react";
 
 interface AuditResult {
@@ -14,9 +14,10 @@ interface AuditResult {
 
 interface AccountDashboardProps {
   onAdd?: () => void;
+  onGenerateProfile?: () => void;
 }
 
-export function AccountDashboard({ onAdd }: AccountDashboardProps) {
+export function AccountDashboard({ onAdd, onGenerateProfile }: AccountDashboardProps) {
   const navigate = useNavigate();
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [auditing, setAuditing] = useState(false);
@@ -121,19 +122,23 @@ export function AccountDashboard({ onAdd }: AccountDashboardProps) {
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => {
-            if (onAdd) {
-              onAdd();
-            } else {
-              // fallback to a direct navigation if no handler provided
-              navigate("/accounts");
-            }
+            if (onAdd) onAdd();
+            else navigate("/accounts");
           }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
         >
           <Plus className="h-4 w-4" /> Добавить аккаунт
         </button>
-        <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors">
-          <UserPlus className="h-4 w-4" /> Сгенерировать профиль
+        
+        {/* 🔹 ИСПРАВЛЕНО: Добавлен onClick для генерации профиля */}
+        <button 
+          onClick={() => {
+            if (onGenerateProfile) onGenerateProfile();
+            else navigate("/accounts?tab=profiles&generate=true");
+          }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors"
+        >
+          <Bot className="h-4 w-4" /> Сгенерировать профиль
         </button>
       </div>
     </div>
