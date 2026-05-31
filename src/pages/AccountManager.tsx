@@ -1,34 +1,30 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; // 🔹 Добавляем useNavigate
+import { useNavigate } from "react-router-dom";
 import { AccountDashboard } from "../components/account-manager/AccountDashboard";
 import { AccountProfiles } from "../components/account-manager/AccountProfiles";
 import { AccountsList } from "../components/account-manager/AccountsList";
 import { AccountSecurity } from "../components/account-manager/AccountSecurity";
 import { SubscriptionsCalendar } from "../components/account-manager/SubscriptionsCalendar";
-import { AccountSkillsIntegrations } from "../components/account-manager/AccountSkillsIntegrations";
 import { MasterPasswordModal } from "../components/account-manager/MasterPasswordModal";
 import { ProfileGenerator } from "../components/account-manager/ProfileGenerator";
-import { Lock, Bot } from "lucide-react";
+import { Lock } from "lucide-react";
 
 const tabs = [
   { key: "dashboard", label: "Обзор" },
   { key: "profiles", label: "Профили" },
   { key: "accounts", label: "Аккаунты" },
   { key: "subscriptions", label: "Подписки" },
-  { key: "skills", label: "⚡ Скилы" },
-  { key: "prompts", label: "📝 Промты" }, // 🔹 НОВАЯ ВКЛАДКА
-  { key: "agents", label: "🤖 Агенты" }, // 🔹 НОВАЯ ВКЛАДКА
   { key: "security", label: "Безопасность" },
 ];
 
 export default function AccountManager() {
-  const navigate = useNavigate(); // 🔹 Добавляем navigate
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showAccountsForm, setShowAccountsForm] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(true);
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
-  const [showProfileGenerator, setShowProfileGenerator] = useState(false); // 🔹 Для генератора профиля
+  const [showProfileGenerator, setShowProfileGenerator] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("master_password_hash");
@@ -40,15 +36,12 @@ export default function AccountManager() {
     setShowAccountsForm(true);
   };
 
-  // 🔹 Обработчик для генерации профиля
   const handleGenerateProfile = () => {
     setShowProfileGenerator(true);
   };
 
-  // 🔹 Сохранение сгенерированного профиля
   const handleSaveGeneratedProfile = (profile: { name: string; email: string; password: string }) => {
     console.log("📝 Сохранение сгенерированного профиля:", profile);
-    // Здесь будет логика сохранения в AccountsList
     setShowProfileGenerator(false);
   };
 
@@ -62,31 +55,18 @@ export default function AccountManager() {
     console.log("Мастер-пароль установлен");
   };
 
-  // Если не разблокировано - показываем заглушку
   if (!isUnlocked) {
     return (
       <>
-        <MasterPasswordModal
-          isOpen={showPasswordModal}
-          onUnlock={handleUnlock}
-          onSetup={handleSetup}
-        />
+        <MasterPasswordModal isOpen={showPasswordModal} onUnlock={handleUnlock} onSetup={handleSetup} />
         <div className="max-w-5xl mx-auto px-4 py-6">
           <h1 className="text-2xl font-bold mb-1">Менеджер аккаунтов</h1>
-          <p className="text-sm text-muted-foreground mb-6">Цифровой сейф для всех ваших логинов и подписок</p>
-          
+          <p className="text-sm text-muted-foreground mb-6">Ваш личный цифровой сейф</p>
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="p-6 rounded-2xl bg-muted/50 border border-border mb-6">
-              <Lock className="h-16 w-16 text-muted-foreground" />
-            </div>
+            <div className="p-6 rounded-2xl bg-muted/50 border border-border mb-6"><Lock className="h-16 w-16 text-muted-foreground" /></div>
             <h2 className="text-xl font-semibold mb-2">Требуется разблокировка</h2>
-            <p className="text-muted-foreground text-center max-w-md">
-              Введите мастер-пароль для доступа к зашифрованным данным
-            </p>
-            <button
-              onClick={() => setShowPasswordModal(true)}
-              className="mt-6 px-6 py-3 rounded-lg gradient-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
-            >
+            <p className="text-muted-foreground text-center max-w-md mb-6">Введите мастер-пароль для доступа к зашифрованным данным</p>
+            <button onClick={() => setShowPasswordModal(true)} className="px-6 py-3 rounded-lg gradient-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity">
               Ввести пароль
             </button>
           </div>
@@ -97,41 +77,29 @@ export default function AccountManager() {
 
   return (
     <>
-      <MasterPasswordModal
-        isOpen={showPasswordModal}
-        onUnlock={handleUnlock}
-        onSetup={handleSetup}
-      />
+      <MasterPasswordModal isOpen={showPasswordModal} onUnlock={handleUnlock} onSetup={handleSetup} />
+      <ProfileGenerator open={showProfileGenerator} onClose={() => setShowProfileGenerator(false)} onSave={handleSaveGeneratedProfile} />
       
-      {/* 🔹 Модал генератора профиля */}
-      <ProfileGenerator
-        open={showProfileGenerator}
-        onClose={() => setShowProfileGenerator(false)}
-        onSave={handleSaveGeneratedProfile}
-      />
-      
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-bold">Менеджер аккаунтов</h1>
-          <button
-            onClick={() => setIsUnlocked(false)}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
-          >
-            <Lock className="h-4 w-4" />
-            Заблокировать
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">Менеджер аккаунтов</h1>
+            <p className="text-sm text-muted-foreground mt-1">Ваш личный цифровой сейф</p>
+          </div>
+          <button onClick={() => setIsUnlocked(false)} className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted">
+            <Lock className="h-4 w-4" /> Заблокировать
           </button>
         </div>
-        <p className="text-sm text-muted-foreground mb-6">Цифровой сейф для всех ваших логинов и подписок</p>
 
-        <div className="flex gap-1 mb-6 overflow-x-auto pb-1 -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="flex gap-1 mb-8 overflow-x-auto pb-1 border-b border-border">
           {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab.key
-                  ? "gradient-primary text-primary-foreground"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground"      
+            <button 
+              key={tab.key} 
+              onClick={() => setActiveTab(tab.key)} 
+              className={`px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+                activeTab === tab.key 
+                  ? "border-primary text-primary" 
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
               }`}
             >
               {tab.label}
@@ -139,43 +107,17 @@ export default function AccountManager() {
           ))}
         </div>
 
-        {activeTab === "dashboard" && (
-          <AccountDashboard 
-            onAdd={handleDashboardAdd} 
-            onGenerateProfile={handleGenerateProfile} // 🔹 Передаём обработчик
-          />
-        )}
+        {/* 🔹 Все компоненты с правильными пропами */}
+        {activeTab === "dashboard" && <AccountDashboard onAdd={handleDashboardAdd} onGenerateProfile={handleGenerateProfile} cryptoKey={cryptoKey} onNavigate={setActiveTab} />}
         {activeTab === "profiles" && <AccountProfiles />}
         {activeTab === "accounts" && (
-          <AccountsList
-            showFormProp={showAccountsForm}
-            onFormClose={() => setShowAccountsForm(false)}
-            cryptoKey={cryptoKey}
+          <AccountsList 
+            showFormProp={showAccountsForm} 
+            onFormClose={() => setShowAccountsForm(false)} 
+            cryptoKey={cryptoKey} 
           />
         )}
-        {activeTab === "subscriptions" && <SubscriptionsCalendar />}
-        {activeTab === "skills" && (
-          <AccountSkillsIntegrations 
-            cryptoKey={cryptoKey}
-            onAddSkill={() => navigate("/studio?tab=skills&create=true")} // 🔹 Передаём обработчик
-            onGoToLibrary={() => navigate("/library?filter=skills")} // 🔹 Передаём обработчик
-            onGoToStudio={() => navigate("/studio?tab=skills")} // 🔹 Передаём обработчик
-          />
-        )}
-        {activeTab === "prompts" && (
-          <div className="text-center py-20">
-            <Bot className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">Раздел "Промты" в разработке</h3>
-            <p className="text-sm text-muted-foreground">Здесь будут ваши промпты и их привязка к аккаунтам</p>
-          </div>
-        )}
-        {activeTab === "agents" && (
-          <div className="text-center py-20">
-            <Bot className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">Раздел "Агенты" в разработке</h3>
-            <p className="text-sm text-muted-foreground">Здесь можно будет подключить AI-агентов к сервисам</p>
-          </div>
-        )}
+        {activeTab === "subscriptions" && <SubscriptionsCalendar cryptoKey={cryptoKey} onNavigate={setActiveTab} />}
         {activeTab === "security" && <AccountSecurity />}
       </div>
     </>
