@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, ChevronRight, ChevronDown, Folder, Search, Grid, List, Zap, FileText, AlertCircle, ToggleLeft, ToggleRight } from "lucide-react";
+import { 
+  BookOpen, ChevronRight, ChevronDown, Folder, Search, Grid, List, 
+  Zap, FileText, AlertCircle, ToggleLeft, ToggleRight, Bot, Play, 
+  Settings, Clock, Activity, Link2 
+} from "lucide-react";
 
 // 🔹 Типы
 type LibraryClass = {
@@ -23,9 +27,10 @@ type LibraryShelf = {
   type: "system" | "user";
 };
 
+// 🔹 ДОБАВЛЕНО: "agent" в тип контента
 type LibraryItem = {
   id: string;
-  type: "prompt" | "skill";
+  type: "prompt" | "skill" | "agent";
   title: string;
   description: string;
   price: number;
@@ -37,9 +42,16 @@ type LibraryItem = {
   shelfIds: string[];
   version?: string;
   isActive: boolean;
+  // 🔹 Агент-специфичные поля
+  agentConfig?: {
+    integrations: { category: string; connected: boolean }[];
+    lastRun?: string;
+    runCount: number;
+    status: "idle" | "running" | "error";
+  };
 };
 
-// 🔹 Классификация (дерево категорий)
+// 🔹 Классификация (дерево категорий) - уже есть "AI-агенты" ✅
 const MOCK_CLASSES: LibraryClass[] = [
   {
     id: "marketing",
@@ -63,7 +75,7 @@ const MOCK_CLASSES: LibraryClass[] = [
   },
   {
     id: "creative",
-    name: " Креатив и Контент",
+    name: "🎨 Креатив и Контент",
     groups: [
       { id: "copywriting", classId: "creative", name: "Копирайтинг", shelves: [{ id: "s13", groupId: "copywriting", name: "Заголовки", type: "system" }, { id: "s14", groupId: "copywriting", name: "Продающие тексты", type: "system" }] },
       { id: "design", classId: "creative", name: "Дизайн", shelves: [{ id: "s15", groupId: "design", name: "Midjourney", type: "system" }, { id: "s16", groupId: "design", name: "DALL-E", type: "system" }] },
@@ -172,15 +184,29 @@ function LibraryTree({
   );
 }
 
-// 🔹 Карточка элемента (поддержка промтов и скилов)
-function LibraryItemCard({ item, onToggleActive }: { item: LibraryItem; onToggleActive: (id: string) => void }) {
+// 🔹 Карточка элемента (поддержка промптов, скилов и АГЕНТОВ)
+function LibraryItemCard({ 
+  item, 
+  onToggleActive,
+  onLaunchAgent 
+}: { 
+  item: LibraryItem; 
+  onToggleActive: (id: string) => void;
+  onLaunchAgent?: (id: string) => void;
+}) {
   const isSkill = item.type === "skill";
+  const isAgent = item.type === "agent";
 
   return (
     <div className="group relative border border-gray-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+      
       {/* Бейдж типа */}
-      <div className="absolute top-3 right-3">
-        {isSkill ? (
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        {isAgent ? (
+          <span className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-[10px] font-bold rounded-full">
+            <Bot className="h-3 w-3" /> AGENT
+          </span>
+        ) : isSkill ? (
           <span className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full">
             <Zap className="h-3 w-3" /> SKILL
           </span>
@@ -203,8 +229,56 @@ function LibraryItemCard({ item, onToggleActive }: { item: LibraryItem; onToggle
         ))}
       </div>
 
+      {/* 🔹 Агент-специфичный блок */}
+      {isAgent && item.agentConfig && (
+        <div className="mb-3 space-y-2">
+          {/* Статус и статистика */}
+          <div className="flex items-center justify-between text-[10px]">
+            <div className="flex items-center gap-2 text-gray-500">
+              <span className={`flex items-center gap-1 ${
+                item.agentConfig.status === "running" ? "text-green-600" :
+                item.agentConfig.status === "error" ? "text-destructive" : "text-gray-500"
+              }`}>
+                <Activity className="h-3 w-3" />
+                {item.agentConfig.status === "running" ? "Работает" :
+                 item.agentConfig.status === "error" ? "Ошибка" : "Ожидает"}
+              </span>
+              <span>🔄 {item.agentConfig.runCount} запусков</span>
+            </div>
+            {item.agentConfig.lastRun && (
+              <span className="text-gray-400 flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {new Date(item.agentConfig.lastRun).toLocaleDateString("ru-RU")}
+              </span>
+            )}
+          </div>
+
+          {/* Интеграции */}
+          {item.agentConfig.integrations.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {item.agentConfig.integrations.slice(0, 3).map((int, i) => (
+                <span 
+                  key={i} 
+                  className={`px-1.5 py-0.5 text-[10px] rounded border flex items-center gap-1 ${
+                    int.connected 
+                      ? "bg-green-50 text-green-700 border-green-200" 
+                      : "bg-gray-50 text-gray-400 border-gray-200"
+                  }`}
+                >
+                  <Link2 className="h-2.5 w-2.5" />
+                  {int.category}
+                </span>
+              ))}
+              {item.agentConfig.integrations.length > 3 && (
+                <span className="px-1.5 py-0.5 text-[10px] text-gray-400">+{item.agentConfig.integrations.length - 3}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Мета для скилов */}
-      {isSkill && (
+      {isSkill && !isAgent && (
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-[10px] text-gray-500">
             <span>v{item.version}</span>
@@ -212,7 +286,6 @@ function LibraryItemCard({ item, onToggleActive }: { item: LibraryItem; onToggle
               {item.isActive ? "● Активен" : "○ Отключен"}
             </span>
           </div>
-          {/* Тоггл активации */}
           <button
             onClick={() => onToggleActive(item.id)}
             className={`p-1 rounded-full transition-colors ${
@@ -220,11 +293,7 @@ function LibraryItemCard({ item, onToggleActive }: { item: LibraryItem; onToggle
             }`}
             title={item.isActive ? "Отключить скил" : "Активировать скил"}
           >
-            {item.isActive ? (
-              <ToggleRight className="h-5 w-5" />
-            ) : (
-              <ToggleLeft className="h-5 w-5" />
-            )}
+            {item.isActive ? <ToggleRight className="h-5 w-5" /> : <ToggleLeft className="h-5 w-5" />}
           </button>
         </div>
       )}
@@ -232,7 +301,21 @@ function LibraryItemCard({ item, onToggleActive }: { item: LibraryItem; onToggle
       {/* Футер карточки */}
       <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100 dark:border-slate-800">
         <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{item.price} {item.currency}</span>
-        {isSkill ? (
+        
+        {isAgent ? (
+          <button 
+            onClick={() => onLaunchAgent?.(item.id)}
+            disabled={!item.isActive || item.agentConfig?.status === "running"}
+            className={`px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5 transition-opacity ${
+              !item.isActive || item.agentConfig?.status === "running"
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-primary text-white hover:opacity-90"
+            }`}
+          >
+            <Play className="h-3.5 w-3.5" />
+            {item.agentConfig?.status === "running" ? "Работает..." : "Запустить"}
+          </button>
+        ) : isSkill ? (
           <button 
             onClick={() => onToggleActive(item.id)}
             className={`px-3 py-1.5 text-xs rounded-lg transition-opacity ${
@@ -244,10 +327,93 @@ function LibraryItemCard({ item, onToggleActive }: { item: LibraryItem; onToggle
             {item.isActive ? "⚙️ Настроить" : "▶️ Активировать"}
           </button>
         ) : (
-          <button className="px-3 py-1.5 bg-primary text-white text-xs rounded-lg hover:opacity-90 transition-opacity">
-            📋 Копировать
+          <button className="px-3 py-1.5 bg-primary text-white text-xs rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1">
+            <FileText className="h-3.5 w-3.5" /> Копировать
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// 🔹 Модал запуска агента
+function AgentLaunchModal({ 
+  item, 
+  onClose,
+  onLaunch 
+}: { 
+  item: LibraryItem; 
+  onClose: () => void;
+  onLaunch: (params: Record<string, any>) => void;
+}) {
+  const [params, setParams] = useState<Record<string, any>>({});
+
+  if (!item.agentConfig) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-lg">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h3 className="font-bold text-lg flex items-center gap-2">
+            <Bot className="h-5 w-5 text-primary" />
+            Запуск: {item.title}
+          </h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted">
+            <ChevronRight className="h-5 w-5 rotate-180" />
+          </button>
+        </div>
+        
+        <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {/* Параметры запуска */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-2 block">Входные параметры</label>
+            <textarea
+              placeholder='{"query": "Что нового?", "user_id": 123}'
+              className="w-full px-3 py-2 rounded-lg bg-background border border-border text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+              rows={4}
+              onChange={(e) => {
+                try {
+                  setParams(JSON.parse(e.target.value));
+                } catch {
+                  // ignore invalid JSON while typing
+                }
+              }}
+            />
+          </div>
+
+          {/* Подключённые интеграции */}
+          {item.agentConfig.integrations.filter(i => i.connected).length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">Используемые интеграции</label>
+              <div className="space-y-1">
+                {item.agentConfig.integrations.filter(i => i.connected).map((int, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs p-2 rounded bg-muted/50">
+                    <Link2 className="h-3 w-3 text-primary" />
+                    <span>{int.category}</span>
+                    <span className="text-green-600 text-[10px]">● подключено</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Предупреждение */}
+          <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-xs text-yellow-800">
+            ⚠️ Запуск агента может использовать токены и вызывать внешние API. Убедитесь, что параметры корректны.
+          </div>
+        </div>
+
+        <div className="flex gap-2 p-4 border-t border-border">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted">
+            Отмена
+          </button>
+          <button 
+            onClick={() => { onLaunch(params); onClose(); }}
+            className="flex-1 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium flex items-center justify-center gap-2"
+          >
+            <Play className="h-4 w-4" /> Запустить
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -258,12 +424,18 @@ export default function LibraryPage() {
   const navigate = useNavigate();
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<"all" | "prompt" | "skill">("all");
+  
+  // 🔹 ДОБАВЛЕНО: "agent" в фильтр
+  const [activeFilter, setActiveFilter] = useState<"all" | "prompt" | "skill" | "agent">("all");
+  
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
   
-  // ✅ СТРОГО ПУСТОЙ МАССИВ. Демо удалены. Данные будут подтягиваться из API/Studio.
+  // ✅ ПУСТОЙ МАССИВ. Данные подтягиваются из API/Studio.
   const [items, setItems] = useState<LibraryItem[]>([]);
+  
+  // 🔹 Состояние для модала запуска агента
+  const [launchingAgent, setLaunchingAgent] = useState<LibraryItem | null>(null);
 
   // Фильтрация
   const filteredItems = items.filter((item) => {
@@ -274,13 +446,32 @@ export default function LibraryPage() {
     return true;
   });
 
-  // Переключение статуса активации скила
+  // Переключение статуса активации
   const handleToggleActive = (id: string) => {
     setItems((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, isActive: !item.isActive } : item
       )
     );
+  };
+
+  // 🔹 Запуск агента
+  const handleLaunchAgent = (id: string) => {
+    const agent = items.find(i => i.id === id);
+    if (agent && agent.type === "agent") {
+      setLaunchingAgent(agent);
+    }
+  };
+
+  const handleConfirmLaunch = (params: Record<string, any>) => {
+    console.log("🚀 Launching agent:", launchingAgent?.id, "with params:", params);
+    // Здесь будет реальный вызов API для запуска агента
+    // Обновляем статус в локальном состоянии для демо
+    setItems(prev => prev.map(item => 
+      item.id === launchingAgent?.id 
+        ? { ...item, agentConfig: { ...item.agentConfig!, status: "running", lastRun: new Date().toISOString(), runCount: (item.agentConfig?.runCount || 0) + 1 } }
+        : item
+    ));
   };
 
   return (
@@ -319,19 +510,22 @@ export default function LibraryPage() {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            {/* Фильтры типа */}
+            {/* 🔹 Фильтры типа: добавлен "Агенты" */}
             <div className="flex bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
-              {(["all", "prompt", "skill"] as const).map((f) => (
+              {(["all", "prompt", "skill", "agent"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setActiveFilter(f)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
                     activeFilter === f 
                       ? "bg-white dark:bg-slate-700 shadow-sm text-primary" 
                       : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                   }`}
                 >
-                  {f === "all" ? "Все" : f === "prompt" ? "Промты" : "Скилы"}
+                  {f === "all" ? "Все" : 
+                   f === "prompt" ? "Промты" : 
+                   f === "skill" ? "Скилы" : 
+                   <><Bot className="h-3 w-3" /> Агенты</>}
                 </button>
               ))}
             </div>
@@ -366,26 +560,49 @@ export default function LibraryPage() {
               </h3>
               <p className="text-sm text-gray-500 max-w-md mb-6">
                 {selectedClass || selectedGroup 
-                  ? "Здесь будут появляться промпты и скилы, соответствующие выбранной категории. Публикуйте или покупайте контент, чтобы наполнить библиотеку."
-                  : "Начните с публикации своих промптов в Маркетплейсе или приобретите готовые решения. Контент автоматически попадёт сюда."}
+                  ? "Здесь будут появляться промпты, скилы и AI-агенты, соответствующие выбранной категории."
+                  : "Начните с публикации контента в Маркетплейсе или создайте агента в Studio. Контент автоматически попадёт сюда."}
               </p>
-              <button 
-                onClick={() => navigate("/market")}
-                className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
-              >
-                <AlertCircle className="h-4 w-4" />
-                Перейти в Маркетплейс
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => navigate("/market")}
+                  className="px-4 py-2 bg-primary text-white text-sm rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  В Маркетплейс
+                </button>
+                <button 
+                  onClick={() => navigate("/studio")}
+                  className="px-4 py-2 border border-border text-sm rounded-lg hover:bg-muted transition-colors flex items-center gap-2"
+                >
+                  <Bot className="h-4 w-4" />
+                  Создать агента
+                </button>
+              </div>
             </div>
           ) : (
             <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-3"}>
               {filteredItems.map((item) => (
-                <LibraryItemCard key={item.id} item={item} onToggleActive={handleToggleActive} />
+                <LibraryItemCard 
+                  key={item.id} 
+                  item={item} 
+                  onToggleActive={handleToggleActive}
+                  onLaunchAgent={handleLaunchAgent}
+                />
               ))}
             </div>
           )}
         </div>
       </main>
+
+      {/* 🔹 Модал запуска агента */}
+      {launchingAgent && (
+        <AgentLaunchModal
+          item={launchingAgent}
+          onClose={() => setLaunchingAgent(null)}
+          onLaunch={handleConfirmLaunch}
+        />
+      )}
     </div>
   );
 }

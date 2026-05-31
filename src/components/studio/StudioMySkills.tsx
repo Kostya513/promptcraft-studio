@@ -1,7 +1,10 @@
-import { Zap, Plus, Search, MoreHorizontal, Eye, Edit3, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Zap, Plus, Search, MoreHorizontal, Eye, Edit3, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
+import StudioSkillBuilder from "./StudioSkillBuilder";
 
 // 🔹 Типы для будущего API
-type SkillItem = {
+export type SkillItem = {
   id: string;
   name: string;
   description: string;
@@ -9,12 +12,48 @@ type SkillItem = {
   status: "active" | "draft" | "archived";
   uses: number;
   updatedAt: string;
+  category?: string;
+  triggerType?: string;
+  actionType?: string;
+  integration?: string;
 };
 
 // 🔹 Заглушка данных (заменится на fetch из API)
 const MOCK_SKILLS: SkillItem[] = [];
 
 export function StudioMySkills() {
+  const [skills, setSkills] = useState<SkillItem[]>(MOCK_SKILLS);
+  const [showSkillBuilder, setShowSkillBuilder] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // 🔹 Обработчик сохранения скила из визарда
+  const handleSaveSkill = (data: any) => {
+    const newSkill: SkillItem = {
+      id: `skill_${Date.now()}`,
+      name: `Skill_${Math.floor(Math.random() * 1000)}`,
+      description: data.description || "Новый автоматизированный процесс",
+      version: "1.0",
+      status: "draft",
+      uses: 0,
+      updatedAt: new Date().toISOString(),
+      category: data.category,
+      triggerType: data.triggerType,
+      actionType: data.actionType,
+      integration: data.integration,
+    };
+    
+    setSkills(prev => [newSkill, ...prev]);
+    toast.success("Скил создан! Он появился в списке.", {
+      description: "Нажмите 'Настроить' для детальной редакции",
+    });
+  };
+
+  // 🔹 Фильтрация по поиску
+  const filteredSkills = skills.filter(skill => 
+    skill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    skill.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       {/* Хедер раздела */}
@@ -28,7 +67,10 @@ export function StudioMySkills() {
             Создавайте, тестируйте и управляйте своими активными процессами
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm">
+        <button 
+          onClick={() => setShowSkillBuilder(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm"
+        >
           <Plus className="h-4 w-4" /> Создать скил
         </button>
       </div>
@@ -39,23 +81,32 @@ export function StudioMySkills() {
         <input 
           type="text" 
           placeholder="Поиск по названию..." 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
 
       {/* Список скилов / Пустое состояние */}
-      {MOCK_SKILLS.length === 0 ? (
+      {filteredSkills.length === 0 ? (
         <div className="border border-dashed border-border rounded-xl bg-muted/30 p-10 text-center">
           <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Zap className="h-7 w-7 text-primary" />
           </div>
-          <h3 className="text-lg font-medium mb-1">Пока нет скилов</h3>
+          <h3 className="text-lg font-medium mb-1">
+            {searchQuery ? "Ничего не найдено" : "Пока нет скилов"}
+          </h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
-            Скилы — это структурированные процессы с автоматическими триггерами. 
-            Создайте первый скил, чтобы автоматизировать рабочие задачи.
+            {searchQuery 
+              ? "Попробуйте изменить поисковый запрос"
+              : "Скилы — это структурированные процессы с автоматическими триггерами. Создайте первый скил, чтобы автоматизировать рабочие задачи."
+            }
           </p>
-          <button className="px-5 py-2.5 border border-border bg-card hover:bg-muted rounded-lg text-sm font-medium transition-colors">
-            Создать первый скил
+          <button 
+            onClick={() => setShowSkillBuilder(true)}
+            className="px-5 py-2.5 gradient-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-2 mx-auto"
+          >
+            <Plus className="h-4 w-4" /> Создать первый скил
           </button>
         </div>
       ) : (
@@ -71,7 +122,7 @@ export function StudioMySkills() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_SKILLS.map((skill) => (
+              {filteredSkills.map((skill) => (
                 <tr key={skill.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">
                     <div className="font-medium">{skill.name}</div>
@@ -90,15 +141,31 @@ export function StudioMySkills() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button className="p-1 hover:bg-muted rounded">
-                      <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button className="p-1 hover:bg-muted rounded" title="Просмотр">
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      <button className="p-1 hover:bg-muted rounded" title="Редактировать">
+                        <Edit3 className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      <button className="p-1 hover:bg-destructive/10 rounded" title="Удалить">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* 🔹 Модал создания скила */}
+      {showSkillBuilder && (
+        <StudioSkillBuilder 
+          onClose={() => setShowSkillBuilder(false)}
+          onSave={handleSaveSkill}
+        />
       )}
     </div>
   );

@@ -18,6 +18,7 @@ import PromptMarket from "./pages/PromptMarket";
 import PromptDetail from "./pages/PromptDetail";
 import AssistantPage from "./pages/AssistantPage";
 import StudioPage from "./pages/StudioPage";
+import StudioAgentBuilder from "./components/studio/StudioAgentBuilder"; // 🔹 НОВЫЙ ИМПОРТ
 import AccountManager from "./pages/AccountManager";
 import CommunityPage from "./pages/CommunityPage";
 import FavoritesPage from "./pages/FavoritesPage";
@@ -38,7 +39,7 @@ import NotFound from "./pages/NotFound";
 import ReferralPage from "./pages/ReferralPage";
 import TeamAccountsPage from "./pages/TeamAccountsPage";
 import CustomOrdersPage from "./pages/CustomOrdersPage";
-import LibraryPage from "./pages/LibraryPage"; // 🔹 НОВЫЙ ИМПОРТ
+import LibraryPage from "./pages/LibraryPage";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -69,13 +70,14 @@ const App = () => (
                   <Route path="/publish" element={<PublishPromptPage />} />
                   <Route element={<AppLayout />}>
                     <Route path="/market" element={<PromptMarket />} />
-                    <Route path="/library" element={<ProtectedRoute><LibraryPage /></ProtectedRoute>} /> {/* 🔹 НОВЫЙ РОУТ */}
+                    <Route path="/library" element={<ProtectedRoute><LibraryPage /></ProtectedRoute>} />
                     <Route path="/search" element={<SearchCatalog />} />
                     <Route path="/prompt/:id" element={<PromptDetail />} />
                     <Route path="/assistant" element={<AssistantPage />} />
                     
                     {/* Protected routes */}
                     <Route path="/studio" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
+                    <Route path="/studio/agent-builder" element={<ProtectedRoute><StudioAgentBuilder /></ProtectedRoute>} /> {/* 🔹 НОВЫЙ РОУТ */}
                     <Route path="/accounts" element={<ProtectedRoute><AccountManager /></ProtectedRoute>} />
                     <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
                     <Route path="/favorites" element={<ProtectedRoute><FavoritesPage /></ProtectedRoute>} />
