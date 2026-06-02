@@ -18,7 +18,7 @@ import PromptMarket from "./pages/PromptMarket";
 import PromptDetail from "./pages/PromptDetail";
 import AssistantPage from "./pages/AssistantPage";
 import StudioPage from "./pages/StudioPage";
-import StudioAgentBuilder from "./components/studio/StudioAgentBuilder"; // 🔹 НОВЫЙ ИМПОРТ
+import StudioAgentBuilder from "./components/studio/StudioAgentBuilder";
 import AccountManager from "./pages/AccountManager";
 import CommunityPage from "./pages/CommunityPage";
 import FavoritesPage from "./pages/FavoritesPage";
@@ -29,7 +29,6 @@ import OfferPage from "./pages/OfferPage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsPage from "./pages/TermsPage";
 import ContactsPage from "./pages/ContactsPage";
-
 import Blog from "./pages/Blog";
 import CreatePost from "./pages/CreatePost";
 import PublishPromptPage from "./components/prompt-market/PublishPromptPage";
@@ -77,7 +76,7 @@ const App = () => (
                     
                     {/* Protected routes */}
                     <Route path="/studio" element={<ProtectedRoute><StudioPage /></ProtectedRoute>} />
-                    <Route path="/studio/agent-builder" element={<ProtectedRoute><StudioAgentBuilder /></ProtectedRoute>} /> {/* 🔹 НОВЫЙ РОУТ */}
+                    <Route path="/studio/agent-builder" element={<ProtectedRoute><StudioAgentBuilder /></ProtectedRoute>} />
                     <Route path="/accounts" element={<ProtectedRoute><AccountManager /></ProtectedRoute>} />
                     <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
                     <Route path="/favorites" element={<ProtectedRoute><FavoritesPage /></ProtectedRoute>} />

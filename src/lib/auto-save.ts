@@ -1,6 +1,7 @@
 import { PromptData } from "@/types/prompt";
 
 const STORAGE_KEY = "promptcraft_autosave";
+const PROMPTS_KEY = "promptcraft_prompts";
 const MAX_AUTOSAVES = 10;
 
 export interface AutoSaveData {
@@ -11,6 +12,7 @@ export interface AutoSaveData {
 
 export function autoSave(prompt: PromptData): void {
   try {
+    // 🔹 1. Сохраняем в autoSave (для визарда)
     const saves = getAutoSaves();
     const existingIndex = saves.findIndex(s => s.promptId === prompt.id);
     
@@ -30,7 +32,37 @@ export function autoSave(prompt: PromptData): void {
     }
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saves));
-    console.log(`[AutoSave] Saved prompt ${prompt.id.slice(0, 8)}`);
+    
+    // 🔹 2. 🔥 Сохраняем в основной список промтов (напрямую, без импорта)
+    try {
+      const promptsData = localStorage.getItem(PROMPTS_KEY);
+      let prompts = promptsData ? JSON.parse(promptsData) : [];
+      
+      // Проверяем, есть ли уже такой промт
+      const existingPromptIndex = prompts.findIndex((p: any) => p.id === prompt.id);
+      
+      const promptToSave = {
+        id: prompt.id,
+        text: prompt.text,
+        model: prompt.model,
+        quality: prompt.quality,
+        rating: null,
+        createdAt: prompt.createdAt,
+        category: prompt.category,
+      };
+      
+      if (existingPromptIndex >= 0) {
+        prompts[existingPromptIndex] = { ...promptToSave, createdAt: prompts[existingPromptIndex].createdAt };
+      } else {
+        prompts.unshift(promptToSave);
+      }
+      
+      localStorage.setItem(PROMPTS_KEY, JSON.stringify(prompts));
+      console.log(`[AutoSave] Saved prompt ${prompt.id?.slice(0, 8) || 'unknown'} to both storages`);
+    } catch (err) {
+      console.error('[AutoSave] Failed to save to prompts:', err);
+    }
+    
   } catch (error) {
     console.error("[AutoSave] Failed to save:", error);
   }
@@ -62,7 +94,7 @@ export function clearAutoSave(promptId: string): void {
     const saves = getAutoSaves();
     const filtered = saves.filter(s => s.promptId !== promptId);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-    console.log(`[AutoSave] Cleared save for prompt ${promptId.slice(0, 8)}`);
+    console.log(`[AutoSave] Cleared save for prompt ${promptId?.slice(0, 8) || 'unknown'}`);
   } catch (error) {
     console.error("[AutoSave] Failed to clear save:", error);
   }

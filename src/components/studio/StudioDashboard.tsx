@@ -1,129 +1,166 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Wallet, TrendingUp, Eye, FileText, ArrowDownToLine,
-  Plus, Settings, ShoppingCart, Star, MessageSquare
+  Plus, Settings, ShoppingCart, Star, Bot
 } from "lucide-react";
+import { getPrompts } from "@/lib/local-storage";
+import QuickStartWizard from "./QuickStartWizard";
 
 interface ActivityItem {
   id: string;
-  type: "purchase" | "review" | "withdrawal";
+  type: "purchase" | "review" | "withdrawal" | "agent_run";
   text: string;
   amount?: string;
   date: string;
 }
 
-const mockActivity: ActivityItem[] = [];
-
 const activityIcons = {
   purchase: ShoppingCart,
   review: Star,
   withdrawal: ArrowDownToLine,
+  agent_run: Bot,
 };
 
 const activityColors = {
   purchase: "text-success",
   review: "text-primary",
   withdrawal: "text-warning",
+  agent_run: "text-blue-500",
 };
 
 export function StudioDashboard() {
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const navigate = useNavigate();
+  const [promptsCount, setPromptsCount] = useState(0);
+  const [balance, setBalance] = useState(0);
+  const [activity] = useState<ActivityItem[]>([
+    { id: "1", type: "agent_run", text: "Агент 'Telegram-помощник' выполнил задачу", date: "2 мин назад" },
+    { id: "2", type: "review", text: "Новый отзыв на промт 'Продающий текст'", date: "1 час назад" },
+  ]);
+  
+  // 🔹 СОСТОЯНИЕ ДЛЯ ВИЗАРДА
+  const [showQuickStart, setShowQuickStart] = useState(false);
 
-  const balance = 0;
-  const dailySales = 0;
-  const totalViews = 0;
-  const promptsCount = 0;
+  // 🔹 Загрузка данных
+  useEffect(() => {
+    // 1. Считаем промты
+    const prompts = getPrompts();
+    setPromptsCount(prompts.length);
 
-  // ✅ Функция перехода на вкладку
+    // 2. Читаем баланс из финансов
+    const financesData = localStorage.getItem("promptcraft_finances");
+    if (financesData) {
+      try {
+        const parsed = JSON.parse(financesData);
+        setBalance(parsed.available || parsed.balance || 0);
+      } catch (e) { console.error("Ошибка чтения финансов:", e); }
+    }
+  }, []);
+
+  // ✅ Навигация по вкладкам
   const goToTab = (tab: string) => {
     navigate(`/studio?tab=${tab}`);
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Metrics — ТЕПЕРЬ КЛИКАБЕЛЬНЫЕ */}
+      {/* 🔹 ВИЗАРД СОЗДАНИЯ ПРОМТА */}
+      {showQuickStart && (
+        <QuickStartWizard 
+          onClose={() => setShowQuickStart(false)}
+          onPublish={(data) => {
+            console.log("Публикация:", data);
+            setShowQuickStart(false);
+            // После создания обновляем счётчик
+            setPromptsCount(prev => prev + 1);
+          }}
+        />
+      )}
+
+      {/* 🔹 МЕТРИКИ (кликабельные) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        
         {/* Баланс → Финансы */}
-        <div 
+        <button 
           onClick={() => goToTab("finances")}
-          className="bg-card rounded-xl border border-border p-4 cursor-pointer hover:border-primary/50 hover:shadow-card-hover transition-all group"
+          className="bg-card rounded-xl border border-border p-4 hover:border-primary/30 transition-colors text-left group"
         >
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1 group-hover:text-primary transition-colors">
-            <Wallet className="h-4 w-4" /> Баланс
+          <div className="flex items-center gap-2 mb-2">
+            <Wallet className="h-5 w-5 text-primary" />
+            <span className="text-sm text-muted-foreground">Баланс</span>
           </div>
           <p className="text-2xl font-bold">{balance.toLocaleString("ru-RU")} ₽</p>
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowWithdrawModal(true); }}
-            className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
-          >
+          <p className="text-xs text-primary mt-1 group-hover:underline flex items-center gap-1">
             <ArrowDownToLine className="h-3 w-3" /> Вывести
-          </button>
-        </div>
+          </p>
+        </button>
 
-        {/* Продажи → Аналитика */}
-        <div 
+        {/* Продажи сегодня → Аналитика */}
+        <button 
           onClick={() => goToTab("analytics")}
-          className="bg-card rounded-xl border border-border p-4 cursor-pointer hover:border-primary/50 hover:shadow-card-hover transition-all group"
+          className="bg-card rounded-xl border border-border p-4 hover:border-primary/30 transition-colors text-left group"
         >
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1 group-hover:text-primary transition-colors">
-            <TrendingUp className="h-4 w-4" /> Продажи сегодня
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="h-5 w-5 text-success" />
+            <span className="text-sm text-muted-foreground">Продажи сегодня</span>
           </div>
-          <p className="text-2xl font-bold">{dailySales} ₽</p>
-        </div>
+          <p className="text-2xl font-bold">0 ₽</p>
+        </button>
 
         {/* Просмотры → Аналитика */}
-        <div 
+        <button 
           onClick={() => goToTab("analytics")}
-          className="bg-card rounded-xl border border-border p-4 cursor-pointer hover:border-primary/50 hover:shadow-card-hover transition-all group"
+          className="bg-card rounded-xl border border-border p-4 hover:border-primary/30 transition-colors text-left group"
         >
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1 group-hover:text-primary transition-colors">
-            <Eye className="h-4 w-4" /> Просмотры
+          <div className="flex items-center gap-2 mb-2">
+            <Eye className="h-5 w-5 text-blue-500" />
+            <span className="text-sm text-muted-foreground">Просмотры</span>
           </div>
-          <p className="text-2xl font-bold">{totalViews.toLocaleString("ru-RU")}</p>
-        </div>
+          <p className="text-2xl font-bold">0</p>
+        </button>
 
         {/* Промптов → Мои промты */}
-        <div 
+        <button 
           onClick={() => goToTab("prompts")}
-          className="bg-card rounded-xl border border-border p-4 cursor-pointer hover:border-primary/50 hover:shadow-card-hover transition-all group"
+          className="bg-card rounded-xl border border-border p-4 hover:border-primary/30 transition-colors text-left group"
         >
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1 group-hover:text-primary transition-colors">
-            <FileText className="h-4 w-4" /> Промптов
+          <div className="flex items-center gap-2 mb-2">
+            <FileText className="h-5 w-5 text-purple-500" />
+            <span className="text-sm text-muted-foreground">Промптов</span>
           </div>
           <p className="text-2xl font-bold">{promptsCount}</p>
-        </div>
+        </button>
       </div>
 
-      {/* Quick actions */}
+      {/* 🔹 БЫСТРЫЕ ДЕЙСТВИЯ */}
       <div className="flex flex-wrap gap-3">
-        <a
-          href="/publish"
+        {/* 🔥 ОТКРЫВАЕТ ВИЗАРД, а не переходит на вкладку! */}
+        <button
+          onClick={() => setShowQuickStart(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
         >
-          <Plus className="h-4 w-4" /> Создать черновик
-        </a>
+          <Plus className="h-4 w-4" /> Создать промт
+        </button>
         <button
-          onClick={() => setShowWithdrawModal(true)}
+          onClick={() => goToTab("finances")}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors"
         >
           <Settings className="h-4 w-4" /> Настроить выплаты
         </button>
       </div>
 
-      {/* Activity feed */}
+      {/* 🔹 ПОСЛЕДНЯЯ АКТИВНОСТЬ */}
       <div>
         <h2 className="font-semibold mb-3">Последняя активность</h2>
         <div className="space-y-2">
-          {mockActivity.length === 0 ? (
+          {activity.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-8">Нет активности</p>
           ) : (
-            mockActivity.map((item) => {
+            activity.map((item) => {
               const Icon = activityIcons[item.type];
               const color = activityColors[item.type];
               return (
-                <div key={item.id} className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
+                <div key={item.id} className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
                   <div className={`h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0`}>
                     <Icon className={`h-4 w-4 ${color}`} />
                   </div>
@@ -131,50 +168,12 @@ export function StudioDashboard() {
                     <p className="text-sm truncate">{item.text}</p>
                     <p className="text-xs text-muted-foreground">{item.date}</p>
                   </div>
-                  {item.amount && (
-                    <span className={`text-sm font-semibold flex-shrink-0 ${item.amount.startsWith("+") ? "text-success" : "text-warning"}`}>
-                      {item.amount}
-                    </span>
-                  )}
                 </div>
               );
             })
           )}
         </div>
       </div>
-
-      {/* Withdraw modal */}
-      {showWithdrawModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={() => setShowWithdrawModal(false)}>
-          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-md mx-4 animate-slide-up" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-lg mb-4">Вывод средств</h3>
-            <p className="text-sm text-muted-foreground mb-4">Доступно: <span className="font-bold text-foreground">{balance.toLocaleString("ru-RU")} ₽</span></p>
-            <div className="space-y-3 mb-4">
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-border cursor-pointer hover:bg-muted transition-colors">
-                <input type="radio" name="method" defaultChecked className="accent-primary" />
-                <span className="text-sm">Карта РФ (по номеру)</span>
-              </label>
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-border cursor-pointer hover:bg-muted transition-colors">
-                <input type="radio" name="method" className="accent-primary" />
-                <span className="text-sm">СБП (по телефону)</span>
-              </label>
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-border cursor-pointer hover:bg-muted transition-colors">
-                <input type="radio" name="method" className="accent-primary" />
-                <span className="text-sm">Внутренний баланс</span>
-              </label>
-            </div>
-            <div className="mb-3">
-              <label className="text-xs text-muted-foreground">Сумма вывода</label>
-              <input type="number" placeholder="1000" className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">Комиссия: 0%. Минимум: 500 ₽. Лимит: 100 000 ₽/мес</p>
-            <div className="flex gap-3">
-              <button className="flex-1 px-4 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-semibold">Вывести</button>
-              <button onClick={() => setShowWithdrawModal(false)} className="px-4 py-2.5 rounded-xl border border-border text-sm">Отмена</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

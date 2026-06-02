@@ -83,12 +83,20 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Account>>({});
   const [addFromTab, setAddFromTab] = useState<string>("Все");
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if (showFormProp && !showForm) setShowForm(true);
   }, [showFormProp, showForm]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'select') {
+      setIsSelectionMode(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (cryptoKey) {
@@ -187,7 +195,7 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
     }
     setShowForm(false);
     setEditAccount(null);
-    onFormClose?.(); // 🔹 Уведомляем родителя
+    onFormClose?.();
     toast.success(editAccount ? "Аккаунт обновлен" : "Аккаунт добавлен");
   };
 
@@ -289,8 +297,59 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
                     <button onClick={() => setMenuOpen(hasMenu ? null : a.id)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"><MoreHorizontal className="h-5 w-5" /></button>
                     {hasMenu && (
                       <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-card border border-border rounded-xl shadow-elevated py-1 animate-fade-in">
+                        
+                        {isSelectionMode && (
+                          <>
+                            <button 
+                              onClick={() => {
+                                const contextStr = localStorage.getItem("integration_selection_context");
+                                if (!contextStr) {
+                                  toast.error("Контекст потерян.");
+                                  return;
+                                }
+                                const context = JSON.parse(contextStr);
+                                if (!context.skillId) {
+                                  toast.error("ID скила не найден.");
+                                  return;
+                                }
+
+                                const skills = JSON.parse(localStorage.getItem("promptcraft_skills") || "[]");
+                                const updatedSkills = skills.map((s: any) => {
+                                  if (s.id === context.skillId) {
+                                    const currentIntegrations = s.integrations || [];
+                                    if (!currentIntegrations.some((i: any) => i.id === a.id)) {
+                                      return { 
+                                        ...s, 
+                                        integrations: [...currentIntegrations, { 
+                                          id: a.id, 
+                                          service: a.service, 
+                                          name: a.service,
+                                          source: "account_manager" 
+                                        }] 
+                                      };
+                                    }
+                                  }
+                                  return s;
+                                });
+
+                                localStorage.setItem("promptcraft_skills", JSON.stringify(updatedSkills));
+                                toast.success("✅ Аккаунт выбран!");
+                                
+                                setTimeout(() => {
+                                  window.location.href = context.returnUrl || "/studio";
+                                }, 600);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-primary/10 text-primary flex items-center gap-2 font-medium"
+                            >
+                              <Plus className="h-4 w-4" /> Выбрать
+                            </button>
+                            <div className="border-t border-border my-1" />
+                          </>
+                        )}
+                        
                         <button onClick={() => handleEdit(a)} className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"><Edit className="h-4 w-4" /> Редактировать</button>
                         <button onClick={() => setDetailAccount(a)} className="w-full px-4 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"><Clock className="h-4 w-4" /> История</button>
+                        
                         <div className="border-t border-border my-1" />
                         <button onClick={() => handleDelete(a.id)} className="w-full px-4 py-2 text-left text-sm hover:bg-destructive/10 text-destructive flex items-center gap-2"><Trash2 className="h-4 w-4" /> Удалить</button>
                       </div>
@@ -329,7 +388,6 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
           <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-lg shadow-elevated animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-lg">{editAccount ? "Редактировать" : `Новый ${addFromTab === "API" ? "API-ключ" : "сервис"}`}</h3>
-              {/* 🔹 ИСПРАВЛЕНО: Добавлен вызов onFormClose */}
               <button onClick={() => { setShowForm(false); setEditAccount(null); onFormClose?.(); }} className="p-2 rounded-lg hover:bg-muted"><span className="text-xl">✕</span></button>
             </div>
             <div className="space-y-4">
@@ -369,7 +427,6 @@ export function AccountsList({ showFormProp, onFormClose, cryptoKey }: AccountsL
                 <button onClick={handleSave} className="flex-1 px-6 py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-opacity">
                   {editAccount ? "Сохранить изменения" : "Сохранить в сейф"}
                 </button>
-                {/* 🔹 ИСПРАВЛЕНО: Добавлен вызов onFormClose */}
                 <button onClick={() => { setShowForm(false); setEditAccount(null); onFormClose?.(); }} className="px-6 py-3 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors">Отмена</button>
               </div>
             </div>
