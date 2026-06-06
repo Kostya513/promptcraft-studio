@@ -22,13 +22,8 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json({ limit: '50mb' })); // Увеличил лимит для видео
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Request logging
-app.use((_req: Request, _res: Response, next: NextFunction) => {
-  next();
-});
 
 // ============================================
 // HEALTH CHECK
@@ -75,25 +70,28 @@ import oauthRoutes from './routes/oauth.js';
 import promptsRoutes from './routes/prompts.js';
 import usersRoutes from './routes/users.js';
 import aiRoutes from './routes/ai.js';
-import postsRoutes from './routes/posts.js'; // ✅ ДОБАВЛЕНО
+import postsRoutes from './routes/posts.js';
+import agentsRoutes from './routes/agents.js';
+import aiKeysRoutes from './routes/aiKeys.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/prompts', promptsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/posts', postsRoutes); // ✅ ДОБАВЛЕНО
+app.use('/api/posts', postsRoutes);
+app.use('/api/agents', agentsRoutes);
+app.use('/api/ai-keys', aiKeysRoutes);
 
 // ============================================
 // SERVE UPLOADED FILES
 // ============================================
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
-  setHeaders: (res: Response, filePath: string) => {
+  setHeaders: (res: Response, _filePath: string) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    console.log('📤 Serving file:', filePath);
   }
 }));
 
@@ -121,7 +119,20 @@ app.use((req: Request, res: Response) => {
       'POST /api/posts',
       'DELETE /api/posts/:id',
       'PUT /api/posts/:id/like',
-      'PUT /api/posts/:id/share'
+      'PUT /api/posts/:id/share',
+      'GET /api/agents',
+      'POST /api/agents',
+      'GET /api/agents/:id',
+      'PUT /api/agents/:id',
+      'DELETE /api/agents/:id',
+      'POST /api/agents/:id/run',
+      'GET /api/agents/:id/logs',
+      'GET /api/ai-keys',
+      'POST /api/ai-keys',
+      'DELETE /api/ai-keys/:providerId',
+      'POST /api/ai-keys/:providerId/test',
+      'PUT /api/ai-keys/:providerId/default',
+      'GET /api/ai-keys/providers'
     ]
   });
 });
@@ -143,7 +154,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(PORT, () => {
   console.log('');
   console.log('╔═══════════════════════════════════════════════════════════╗');
-  console.log('║         🚀 PROMPT STUDIO BACKEND SERVER                  ║');
+  console.log('║          PROMPT STUDIO BACKEND SERVER                  ║');
   console.log('╠═══════════════════════════════════════════════════════════╣');
   console.log(`║  🌐 Server:    http://localhost:${PORT}                    ║`);
   console.log(`║  🔗 Frontend:  ${FRONTEND_URL}                             ║`);
@@ -151,22 +162,17 @@ app.listen(PORT, () => {
   console.log('╠═══════════════════════════════════════════════════════════╣');
   console.log('║  Available Endpoints:                                     ║');
   console.log('║  • GET  /health                                           ║');
-  console.log('║  • POST /api/auth/register                                ║');
-  console.log('║  • POST /api/auth/login                                   ║');
-  console.log('║  • GET  /api/auth/me                                      ║');
   console.log('║  • POST /api/auth/social-login                            ║');
-  console.log('║  • GET  /api/oauth/vk                                     ║');
-  console.log('║  • GET  /api/oauth/yandex                                 ║');
-  console.log('║  • GET  /api/oauth/google                                 ║');
-  console.log('║  • POST /api/users/avatar                                 ║');
-  console.log('║  • GET  /api/users/profile                                ║');
   console.log('║  • GET  /api/prompts                                      ║');
   console.log('║  • POST /api/prompts                                      ║');
   console.log('║  • GET  /api/posts                                        ║');
   console.log('║  • POST /api/posts                                        ║');
-  console.log('║  • DELETE /api/posts/:id                                  ║');
-  console.log('║  • PUT  /api/posts/:id/like                               ║');
-  console.log('║  • PUT  /api/posts/:id/share                              ║');
+  console.log('║  • GET  /api/agents                                       ║');
+  console.log('║  • POST /api/agents                                       ║');
+  console.log('║  • POST /api/agents/:id/run                               ║');
+  console.log('║  • GET  /api/ai-keys                                      ║');
+  console.log('║  • POST /api/ai-keys                                      ║');
+  console.log('║  • GET  /api/ai-keys/providers                            ║');
   console.log('╚═══════════════════════════════════════════════════════════╝');
   console.log('');
 });
