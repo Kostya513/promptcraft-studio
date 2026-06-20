@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   FolderHeart, Store, Settings, Zap, Vault,
-  Heart, HelpCircle, Users, Gift, Building2, FileText,
+  Flag, HelpCircle, Users, Gift, Building2, FileText,
   Menu, ChevronLeft, BookOpen
 } from "lucide-react";
 
@@ -14,7 +14,7 @@ const navItems = [
   { title: "Заказные промпты", path: "/custom-orders", icon: FileText },
   { title: "Команда", path: "/team", icon: Building2 },
   { title: "Сообщество", path: "/community", icon: Users },
-  { title: "Избранное", path: "/favorites", icon: Heart },
+  { title: "Избранное", path: "/favorites", icon: Flag },
   { title: "Рефералы", path: "/referrals", icon: Gift },
   { title: "Настройки", path: "/settings", icon: Settings },
   { title: "Поддержка", path: "/support", icon: HelpCircle },

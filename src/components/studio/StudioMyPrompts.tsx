@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Plus, Search, Copy, Trash2, Cpu, FileText, Star, Heart, Zap
+  Plus, Search, Copy, Trash2, Cpu, FileText, Star, Heart, Zap, Download, Share2
 } from "lucide-react";
 import { getPrompts, deletePrompt, StoredPrompt } from "@/lib/local-storage";
 import { getAutoSaves } from "@/lib/auto-save";
@@ -37,7 +37,6 @@ const statusColors: Record<PromptStatus, string> = {
   archived: "bg-muted text-muted-foreground",
 };
 
-// 🔹 КОНВЕРТЕР
 const toPromptData = (p: StoredPrompt): PromptData => ({
   id: p.id || `tmp-${Date.now()}`,
   text: p.text || "",
@@ -56,13 +55,12 @@ const toPromptData = (p: StoredPrompt): PromptData => ({
 
 export function StudioMyPrompts() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<PromptStatus | "all">("all");      
   const [sort, setSort] = useState<SortKey>("date");
   const [search, setSearch] = useState("");
   const [allPrompts, setAllPrompts] = useState<PromptData[]>([]);
   const [showQuickStart, setShowQuickStart] = useState(false);    
-  
-  // 🔹 ID промта, который хотим удалить (null = ничего не удаляем)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
@@ -126,11 +124,9 @@ export function StudioMyPrompts() {
     }
   };
 
-  // 🔹 РЕАЛЬНОЕ УДАЛЕНИЕ (вызывается из модалки)
   const performDelete = (id: string) => {
     try {
       deletePrompt(id);
-      // Удаляем из autoSave если есть
       const autoSaves = getAutoSaves();
       const filtered = autoSaves.filter(s => s.promptId !== id);
       if (filtered.length !== autoSaves.length) {
@@ -138,11 +134,46 @@ export function StudioMyPrompts() {
       }
       
       setAllPrompts(prev => prev.filter(p => p.id !== id));
-      setDeleteConfirm(null); // Закрываем модалку
+      setDeleteConfirm(null);
       toast({ title: "🗑️ Удалено" });
     } catch {
       toast({ title: "❌ Ошибка", variant: "destructive" });
     }
+  };
+
+  const handleDownloadPrompt = (prompt: PromptData) => {
+    const exportData = {
+      type: "prompt",
+      version: "1.0",
+      exported_at: new Date().toISOString(),
+      data: {
+        id: prompt.id,
+        text: prompt.text,
+        title: prompt.title,
+        description: prompt.description,
+        category: prompt.category,
+        model: prompt.model,
+        status: prompt.status,
+        quality: prompt.quality,
+        createdAt: prompt.createdAt,
+        updatedAt: prompt.updatedAt,
+        metadata: prompt.metadata,
+      }
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prompt-${(prompt.title || "untitled").replace(/\s+/g, "-").toLowerCase()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "⬇️ Промт скачан" });
+  };
+
+  // 🔹 НОВАЯ ФУНКЦИЯ ПУБЛИКАЦИИ - прямой переход на страницу публикации
+  const handlePublishPrompt = (prompt: PromptData) => {
+    navigate('/publish', { state: { prompt } });
   };
 
   const getModelDisplay = (model?: string) => {
@@ -156,7 +187,6 @@ export function StudioMyPrompts() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* 🔹 ВИЗАРД */}
       {showQuickStart && (
         <QuickStartWizard 
           onClose={() => setShowQuickStart(false)}
@@ -169,7 +199,6 @@ export function StudioMyPrompts() {
         />
       )}
       
-      {/* 🔹 МОДАЛКА ПОДТВЕРЖДЕНИЯ УДАЛЕНИЯ */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md">
@@ -192,7 +221,6 @@ export function StudioMyPrompts() {
         </div>
       )}
 
-      {/* 🔹 ХЕДЕР */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-lg">Мои промты</h3>
@@ -203,7 +231,6 @@ export function StudioMyPrompts() {
         </Button>
       </div>
 
-      {/* 🔹 ПОИСК И СОРТИРОВКА */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -216,7 +243,6 @@ export function StudioMyPrompts() {
         </select>
       </div>
 
-      {/* 🔹 ФИЛЬТРЫ */}
       <div className="flex gap-1 overflow-x-auto pb-1">
         {[{ key: "all", label: "Все" }, { key: "draft", label: "Черновики" }, { key: "published", label: "Опубликованные" }, { key: "moderation", label: "На модерации" }, { key: "archived", label: "Архив" }].map((tab) => (
           <button key={tab.key} onClick={() => setFilter(tab.key as PromptStatus | "all")} className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${filter === tab.key ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}>
@@ -225,7 +251,6 @@ export function StudioMyPrompts() {
         ))}
       </div>
 
-      {/* 🔹 СПИСОК */}
       {filtered.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-border rounded-xl bg-muted/20">
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -239,6 +264,7 @@ export function StudioMyPrompts() {
             const modelInfo = getModelDisplay(p.model);
             const ModelIcon = modelInfo.icon;
             const textLength = (p.text || "").length;
+            const canPublish = p.status !== "published";
             
             return (
               <Card key={p.id} className="hover:shadow-md transition-shadow">
@@ -257,13 +283,33 @@ export function StudioMyPrompts() {
                       <h4 className="font-medium mb-1 truncate">{p.title || "Без названия"}</h4>
                       <p className="text-sm text-muted-foreground mb-2">{truncateText(p.text)}</p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                        <span>📅 {formatDate(p.createdAt)}</span>
+                        <span> {formatDate(p.createdAt)}</span>
                         <span>📝 {textLength} симв.</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">       
-                      <Button size="sm" variant="outline" onClick={() => handleCopy(p.text)} title="Копировать"><Copy className="h-4 w-4" /></Button>
-                      {/* 🔹 КНОПКА УДАЛЕНИЯ ТЕПЕРЬ ОТКРЫВАЕТ МОДАЛКУ */}
+                    <div className="flex items-center gap-2">
+                      {canPublish && (
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => handlePublishPrompt(p)} 
+                          title="Опубликовать в Market"
+                          className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => handleDownloadPrompt(p)} 
+                        title="Скачать JSON"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleCopy(p.text)} title="Копировать">
+                        <Copy className="h-4 w-4" />
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => setDeleteConfirm(p.id)} title="Удалить" className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>

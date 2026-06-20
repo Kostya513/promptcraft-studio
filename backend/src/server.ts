@@ -68,6 +68,7 @@ app.post('/api/auth/social-login', (req: Request, res: Response) => {
 import authRoutes from './routes/auth.js';
 import oauthRoutes from './routes/oauth.js';
 import promptsRoutes from './routes/prompts.js';
+import promptsMediaRoutes from './routes/prompts-media.js'; // 🔹 НОВОЕ
 import usersRoutes from './routes/users.js';
 import aiRoutes from './routes/ai.js';
 import postsRoutes from './routes/posts.js';
@@ -77,6 +78,7 @@ import aiKeysRoutes from './routes/aiKeys.js';
 app.use('/api/auth', authRoutes);
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/prompts', promptsRoutes);
+app.use('/api/prompts/media', promptsMediaRoutes); // 🔹 НОВОЕ
 app.use('/api/users', usersRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/posts', postsRoutes);
@@ -115,6 +117,8 @@ app.use((req: Request, res: Response) => {
       'GET /api/users/profile',
       'GET /api/prompts',
       'POST /api/prompts',
+      'POST /api/prompts/media/upload', // 🔹 НОВОЕ
+      'POST /api/prompts/media/upload-multiple', // 🔹 НОВОЕ
       'GET /api/posts',
       'POST /api/posts',
       'DELETE /api/posts/:id',
@@ -165,6 +169,8 @@ app.listen(PORT, () => {
   console.log('║  • POST /api/auth/social-login                            ║');
   console.log('║  • GET  /api/prompts                                      ║');
   console.log('║  • POST /api/prompts                                      ║');
+  console.log('║  • POST /api/prompts/media/upload                         ║'); // 🔹 НОВОЕ
+  console.log('║  • POST /api/prompts/media/upload-multiple                ║'); // 🔹 НОВОЕ
   console.log('║  • GET  /api/posts                                        ║');
   console.log('║  • POST /api/posts                                        ║');
   console.log('║  • GET  /api/agents                                       ║');

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus, Search, Trash2, Settings, Play, Pause, Zap,
-  Clock, BarChart3, Copy as CopyIcon
+  Clock, BarChart3, Copy as CopyIcon, Share2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function StudioMySkills() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [filter, setFilter] = useState<string>("all");
@@ -183,6 +185,11 @@ export function StudioMySkills() {
     toast({ title: "📋 Дублировано", description: `Создана копия "${skill.name}"` });
   };
 
+  // 🔹 НОВАЯ ФУНКЦИЯ: ПУБЛИКАЦИЯ СКИЛА (прямой переход)
+  const handlePublishSkill = (skill: Skill) => {
+    navigate('/publish', { state: { skill } });
+  };
+
   const performDelete = (id: string) => {
     handleDeleteSkill(id);
     setDeleteConfirm(null);
@@ -273,6 +280,8 @@ export function StudioMySkills() {
         <div className="grid gap-3">
           {filtered.map((skill) => {
             const normalizedIntegrations = normalizeIntegrations(skill.integrations);
+            const canPublish = true;
+            
             return (
               <Card key={skill.id} className="hover:border-primary/30 transition-all">
                 <CardContent className="p-4">
@@ -296,7 +305,7 @@ export function StudioMySkills() {
                           {normalizedIntegrations.map((int, i) => (
                             <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
                               {int.source === "account_manager" && "🔗"}
-                              {int.source === "universal" && "🔌"}
+                              {String(int.source) === "universal" && "🔌"}
                               {int.source === "custom" && "⚙️"}
                               {int.name || int.service}
                             </span>
@@ -306,6 +315,17 @@ export function StudioMySkills() {
                     </div>
 
                     <div className="flex flex-col gap-2 flex-shrink-0">
+                      {canPublish && (
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => handlePublishSkill(skill)} 
+                          title="Опубликовать в Market"
+                          className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button 
                         size="sm" 
                         variant={skill.status === "active" ? "outline" : "default"} 

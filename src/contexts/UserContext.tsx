@@ -49,6 +49,46 @@ const defaultUser: UserProfile = {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+// 🔹 СИНХРОНИЗАЦИЯ АВТАРКИ В LOCALSTORAGE
+const syncUserToStorage = (userData: UserProfile) => {
+  try {
+    const users = JSON.parse(localStorage.getItem("promptcraft_users") || "[]");
+    const existingIndex = users.findIndex((u: any) => u.email === userData.email);
+    
+    const userDataToSave = {
+      email: userData.email,
+      name: userData.name,
+      avatar: userData.avatar,
+      avatar_url: userData.avatar,
+    };
+    
+    if (existingIndex >= 0) {
+      users[existingIndex] = { ...users[existingIndex], ...userDataToSave };
+    } else {
+      users.push(userDataToSave);
+    }
+    
+    localStorage.setItem("promptcraft_users", JSON.stringify(users));
+    console.log("✅ User synced to storage:", userData.email, "Avatar:", userData.avatar);
+  } catch (e) {
+    console.error("Error saving user to storage:", e);
+  }
+};
+
+// 🔹 ЗАГРУЗКА АВТАРКИ ИЗ LOCALSTORAGE
+const loadAvatarFromStorage = (email: string): string => {
+  try {
+    const users = JSON.parse(localStorage.getItem("promptcraft_users") || "[]");
+    const user = users.find((u: any) => u.email === email);
+    const avatar = user?.avatar || user?.avatar_url || "";
+    console.log("📥 Loaded avatar from storage for", email, ":", avatar);
+    return avatar;
+  } catch (e) {
+    console.error("Error loading avatar from storage:", e);
+    return "";
+  }
+};
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile>(defaultUser);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -61,14 +101,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
       getCurrentUser()
         .then((apiUser) => {
           if (apiUser) {
-            setUser({
+            // 🔹 Сначала загружаем аватарку из localStorage
+            const savedAvatar = loadAvatarFromStorage(apiUser.email);
+            
+            const userData = {
               ...defaultUser,
               id: apiUser.id,
               email: apiUser.email,
               name: apiUser.name || apiUser.email.split('@')[0],
-              avatar: apiUser.avatar_url || "",
-            });
+              avatar: savedAvatar || apiUser.avatar_url || "",
+            };
+            setUser(userData);
             setIsLoggedIn(true);
+            
+            // Если аватарки не было в storage - сохраняем
+            if (!savedAvatar && apiUser.avatar_url) {
+              syncUserToStorage(userData);
+            }
           }
         })
         .catch(() => {
@@ -83,11 +132,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const login = (email: string, token: string) => {
     localStorage.setItem('auth_token', token);
-    setUser((prev) => ({
-      ...prev,
+    
+    // 🔹 Проверяем есть ли аватарка в storage
+    const savedAvatar = loadAvatarFromStorage(email);
+    
+    const userData = {
+      ...defaultUser,
       email,
       name: email.split('@')[0],
-    }));
+      avatar: savedAvatar,
+    };
+    setUser(userData);
     setIsLoggedIn(true);
   };
 
@@ -101,12 +156,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const apiUser = await getCurrentUser();
       if (apiUser) {
-        setUser((prev) => ({
-          ...prev,
+        const savedAvatar = loadAvatarFromStorage(apiUser.email);
+        const userData = {
+          ...user,
           id: apiUser.id,
-          name: apiUser.name || prev.name,
-          avatar: apiUser.avatar_url || prev.avatar,
-        }));
+          name: apiUser.name || user.name,
+          avatar: savedAvatar || apiUser.avatar_url || user.avatar,
+        };
+        setUser(userData);
+        if (!savedAvatar && apiUser.avatar_url) {
+          syncUserToStorage(userData);
+        }
       }
     } catch {
       // Игнорируем ошибки
@@ -120,7 +180,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUser = (u: UserProfile) => {
-    setUser({ ...u, roleLabel: roleLabels[u.role] || u.role });
+    const updatedUser = { ...u, roleLabel: roleLabels[u.role] || u.role };
+    setUser(updatedUser);
+    syncUserToStorage(updatedUser);
   };
 
   return (

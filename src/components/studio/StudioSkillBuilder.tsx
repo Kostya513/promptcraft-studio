@@ -39,7 +39,7 @@ interface SkillWorkflow {
 
 const CATEGORIES = [
   { id: "marketing", label: "Маркетинг", icon: "📈" },
-  { id: "dev", label: "Разработка", icon: "" },
+  { id: "dev", label: "Разработка", icon: "💻" },
   { id: "data", label: "Данные", icon: "📊" },
   { id: "content", label: "Контент", icon: "✍️" },
   { id: "automation", label: "Автоматизация", icon: "⚙️" },
@@ -53,7 +53,7 @@ const TRIGGERS = [
 ];
 
 const NODE_TEMPLATES: Record<NodeType, { label: string; icon: string; config: Record<string, any> }> = {
-  trigger: { label: "Триггер", icon: "", config: { source: "", params: {} } },
+  trigger: { label: "Триггер", icon: "⚡", config: { source: "", params: {} } },
   action: { label: "Действие", icon: "✨", config: { operation: "", payload: {} } },
   condition: { label: "Условие", icon: "🔀", config: { rule: "if", expression: "" } },
   integration: { label: "Интеграция", icon: "🔗", config: { service: "", method: "POST", headers: {} } },
@@ -77,10 +77,21 @@ export default function StudioSkillBuilder({
   // 🔹 1. ГЕНЕРАЦИЯ/ВОССТАНОВЛЕНИЕ ID
   const [draftSkillId] = useState(() => {
     const restoreId = localStorage.getItem("restore_skill_id");
-    if (restoreId) return restoreId;
+    
+    if (restoreId) {
+      console.log("♻️ [ID] Найден restore_skill_id:", restoreId);
+      return restoreId;
+    }
+    
     const stored = sessionStorage.getItem("current_draft_id");
-    if (stored) return stored;
-    return `skill_new_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (stored) {
+      console.log("♻️ [ID] Найден в sessionStorage:", stored);
+      return stored;
+    }
+    
+    const newId = `skill_new_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log("🆕 [ID] Создан новый:", newId);
+    return newId;
   });
 
   useEffect(() => {
@@ -104,7 +115,7 @@ export default function StudioSkillBuilder({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // 🔹 2. АВТОСОХРАНЕНИЕ ЧЕРНОВИКА (при любом изменении workflow, aiStep, mode)
+  // 🔹 2. АВТОСОХРАНЕНИЕ ПРИ ИЗМЕНЕНИИ WORKFLOW
   useEffect(() => {
     const draftData = {
       id: draftSkillId,
@@ -112,24 +123,40 @@ export default function StudioSkillBuilder({
       meta: { aiStep, mode, timestamp: Date.now() }
     };
     localStorage.setItem(`draft_${draftSkillId}`, JSON.stringify(draftData));
-  }, [workflow, aiStep, mode, draftSkillId]);
+    console.log("💾 [AUTO-SAVE workflow] draftId:", draftSkillId, "step:", aiStep);
+  }, [workflow, draftSkillId]);
 
-  // 🔹 3. ВОССТАНОВЛЕНИЕ СОСТОЯНИЯ ПРИ ВОЗВРАТЕ ИЗ МЕНЕДЖЕРА
+  // 🔹 3. АВТОСОХРАНЕНИЕ ПРИ ИЗМЕНЕНИИ ШАГА
+  useEffect(() => {
+    const draftData = {
+      id: draftSkillId,
+      ...workflow,
+      meta: { aiStep, mode, timestamp: Date.now() }
+    };
+    localStorage.setItem(`draft_${draftSkillId}`, JSON.stringify(draftData));
+    console.log("💾 [AUTO-SAVE STEP] draftId:", draftSkillId, "step:", aiStep);
+  }, [aiStep, draftSkillId]);
+
+  // 🔹 4. ВОССТАНОВЛЕНИЕ СОСТОЯНИЯ ПРИ ВОЗВРАТЕ ИЗ МЕНЕДЖЕРА
   useEffect(() => {
     const restoreId = localStorage.getItem("restore_skill_id");
     const contextStr = localStorage.getItem("restore_skill_context");
     
-    if (restoreId === draftSkillId && contextStr) {
-      console.log("♻️ Восстановление конструктора для:", draftSkillId);
+    console.log("🔍 [RESTORE CHECK] restoreId:", restoreId);
+    console.log("🔍 [RESTORE CHECK] draftSkillId:", draftSkillId);
+    console.log("🔍 [RESTORE CHECK] contextStr:", contextStr);
+    console.log("🔍 [RESTORE CHECK] Равны?", restoreId === draftSkillId);
+    
+    if (restoreId && restoreId === draftSkillId && contextStr) {
+      console.log("✅ [RESTORE] Начинаем восстановление...");
       
       try {
-        // Пытаемся загрузить автосохранённый черновик
         const savedDraft = localStorage.getItem(`draft_${draftSkillId}`);
+        
         if (savedDraft) {
           const parsed = JSON.parse(savedDraft);
-          console.log("✅ Восстановлен черновик, шаг:", parsed.meta?.aiStep);
+          console.log("✅ [RESTORE] Черновик найден, шаг:", parsed.meta?.aiStep);
           
-          // Восстанавливаем workflow, шаг и режим
           setWorkflow({
             name: parsed.name || "",
             description: parsed.description || "",
@@ -144,36 +171,31 @@ export default function StudioSkillBuilder({
           });
           
           if (parsed.meta?.aiStep) {
+            console.log("✅ [RESTORE] Восстанавливаю шаг:", parsed.meta.aiStep);
             setAiStep(parsed.meta.aiStep);
-            console.log("✅ Восстановлен шаг:", parsed.meta.aiStep);
           }
+          
           if (parsed.meta?.mode) {
+            console.log("✅ [RESTORE] Восстанавливаю режим:", parsed.meta.mode);
             setMode(parsed.meta.mode);
-            console.log("✅ Восстановлен режим:", parsed.meta.mode);
           }
+        } else {
+          console.warn("⚠️ [RESTORE] Черновик НЕ найден для:", draftSkillId);
         }
         
-        // Подтягиваем интеграции из основного хранилища (на случай если они обновились в Менеджере)
-        const skills = JSON.parse(localStorage.getItem("promptcraft_skills") || "[]");
-        const skillFromStore = skills.find((s: any) => s.id === draftSkillId);
-        if (skillFromStore?.integrations) {
-          setWorkflow(prev => ({
-            ...prev,
-            integrations: skillFromStore.integrations
-          }));
-          console.log("✅ Подтянуты интеграции из хранилища:", skillFromStore.integrations.length);
-        }
-        
-        // Очищаем флаги после успешного восстановления
+        console.log("🧹 [RESTORE] Очищаю флаги...");
         localStorage.removeItem("restore_skill_id");
         localStorage.removeItem("restore_skill_context");
+        
       } catch (e) {
-        console.error("❌ Ошибка восстановления черновика:", e);
+        console.error("❌ [RESTORE] Ошибка:", e);
       }
+    } else {
+      console.log("⏭️ [RESTORE] Пропускаем (условия не выполнены)");
     }
   }, []);
 
-  // 🔹 4. СИНХРОНИЗАЦИЯ ИНТЕГРАЦИЙ (дополнительная страховка)
+  // 🔹 5. СИНХРОНИЗАЦИЯ ИНТЕГРАЦИЙ
   useEffect(() => {
     const skills = JSON.parse(localStorage.getItem("promptcraft_skills") || "[]");
     const draft = skills.find((s: any) => s.id === draftSkillId);
@@ -212,7 +234,6 @@ export default function StudioSkillBuilder({
       lastRun: null,
     };
     onSave(payload);
-    // Очищаем временные данные
     sessionStorage.removeItem("current_draft_id");
     localStorage.removeItem(`draft_${draftSkillId}`);
     toast({ title: "✅ Скил сохранён", description: "Добавлен в вашу библиотеку" });
@@ -230,16 +251,18 @@ export default function StudioSkillBuilder({
     }
     setErrors({});
     
-    // 🔹 ПРИНУДИТЕЛЬНОЕ СОХРАНЕНИЕ СЛЕДУЮЩЕГО ШАГА
     if (aiStep < 6) {
       const newStep = aiStep + 1;
+      
+      // 🔥 ПРИНУДИТЕЛЬНОЕ СОХРАНЕНИЕ ПЕРЕД обновлением состояния
       const draftData = {
         id: draftSkillId,
         ...workflow,
         meta: { aiStep: newStep, mode, timestamp: Date.now() }
       };
       localStorage.setItem(`draft_${draftSkillId}`, JSON.stringify(draftData));
-      console.log("💾 Сохранён шаг:", newStep);
+      console.log("💾 [NEXT] Сохранён шаг:", newStep, "draftId:", draftSkillId);
+      
       setAiStep(newStep);
     } else {
       handleSave();

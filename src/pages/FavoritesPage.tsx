@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   Search, Heart, Trash2, ShoppingCart, Play, ExternalLink,
   FolderPlus, Tag, TrendingDown, TrendingUp, BarChart3,
-  CheckSquare, Bell, X, ChevronDown, Folder, FolderX, Zap, FileText
+  CheckSquare, Bell, X, ChevronDown, Folder, FolderX, Zap, FileText, Bot
 } from "lucide-react";
 
-// 🔹 Обновлённый интерфейс с поддержкой скилов
 interface FavoriteItem {
   id: string;
   title: string;
@@ -19,26 +19,126 @@ interface FavoriteItem {
   folder: string;
   rating: number;
   image: string;
-  type?: "prompt" | "skill"; // 🔹 НОВОЕ: тип контента
-  version?: string; // 🔹 НОВОЕ: версия для скилов
+  type?: "prompt" | "skill" | "agent";
+  version?: string;
 }
 
-const mockFavorites: FavoriteItem[] = [];
 const mockFolders: string[] = ["Все"];
 const sortOptions = ["По дате добавления", "По цене", "По названию"];
-type ContentType = "all" | "prompt" | "skill"; // 🔹 НОВОЕ
+type ContentType = "all" | "prompt" | "skill" | "agent";
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("По дате добавления");
   const [activeFolder, setActiveFolder] = useState("Все");
-  const [contentType, setContentType] = useState<ContentType>("all"); // 🔹 НОВОЕ
+  const [contentType, setContentType] = useState<ContentType>("all");
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [folders, setFolders] = useState(mockFolders);
   const [showAnalytics, setShowAnalytics] = useState(false);
+
+  // 🔹 ЗАГРУЗКА ИЗБРАННЫХ ИЗ LOCALSTORAGE
+  useEffect(() => {
+    const loadFavorites = () => {
+      try {
+        // Получаем список сохраненных ID
+        const savedIds: string[] = JSON.parse(localStorage.getItem("saved_items") || "[]");
+        
+        if (savedIds.length === 0) {
+          setFavorites([]);
+          return;
+        }
+
+        // Загружаем все элементы из хранилищ
+        const prompts = JSON.parse(localStorage.getItem("promptcraft_prompts") || "[]");
+        const skills = JSON.parse(localStorage.getItem("promptcraft_skills") || "[]");
+        const agents = JSON.parse(localStorage.getItem("promptcraft_agents") || "[]");
+
+        const allItems: any[] = [
+          ...prompts.map((p: any) => ({ ...p, _type: "prompt" as const })),
+          ...skills.map((s: any) => ({ ...s, _type: "skill" as const })),
+          ...agents.map((a: any) => ({ ...a, _type: "agent" as const })),
+        ];
+
+        // Находим избранные элементы
+        const favoriteItems: FavoriteItem[] = savedIds
+          .map((savedId) => {
+            // Ищем по полному ID или по части
+            const found = allItems.find((item: any) => {
+              const itemId = item.id;
+              const fullId = `${item._type}_${item.id}`;
+              return itemId === savedId || fullId === savedId || savedId.endsWith(itemId);
+            });
+
+            if (!found) return null;
+
+            // Получаем изображение
+            let image = "";
+            if (found.media && found.media.length > 0) {
+              image = found.media[0].url;
+            } else if (found.images && found.images.length > 0) {
+              image = found.images[0];
+            } else if (found.image) {
+              image = found.image;
+            }
+
+            // Плейсхолдеры по типу
+            if (!image) {
+              if (found._type === "prompt") {
+                image = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%233b82f6' width='400' height='300'/%3E%3Ctext fill='white' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24'%3EPrompt%3C/text%3E%3C/svg%3E`;
+              } else if (found._type === "skill") {
+                image = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%2310b981' width='400' height='300'/%3E%3Ctext fill='white' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24'%3ESkill%3C/text%3E%3C/svg%3E`;
+              } else {
+                image = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%238b5cf6' width='400' height='300'/%3E%3Ctext fill='white' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='24'%3EAgent%3C/text%3E%3C/svg%3E`;
+              }
+            }
+
+            // Формируем ID для карточки
+            const cardId = found.id.includes("_") ? found.id : `${found._type}_${found.id}`;
+
+            return {
+              id: cardId,
+              title: found.title || found.name || "Без названия",
+              author: found.author || "Автор",
+              price: found.price || 0,
+              originalPrice: found.originalPrice,
+              priceChange: "none" as const,
+              addedDate: new Date(found.createdAt || Date.now()).toLocaleDateString("ru-RU"),
+              purchased: false,
+              tags: found.tags || [],
+              folder: "Все",
+              rating: found.rating || 5,
+              image,
+              type: found._type,
+              version: found.version || "1.0",
+            };
+          })
+          .filter(Boolean) as FavoriteItem[];
+
+        setFavorites(favoriteItems);
+      } catch (e) {
+        console.error("Ошибка загрузки избранного:", e);
+        setFavorites([]);
+      }
+    };
+
+    loadFavorites();
+
+    // 🔹 Слушаем изменения localStorage (для синхронизации между вкладками)
+    const handleStorageChange = () => loadFavorites();
+    window.addEventListener("storage", handleStorageChange);
+    
+    // Обновляем при фокусе на вкладку
+    const handleFocus = () => loadFavorites();
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   // 🔹 Фильтрация по типу контента + поиску + папке
   const filtered = favorites
@@ -51,8 +151,27 @@ export default function FavoritesPage() {
       return 0;
     });
 
-  const removeFavorite = (id: string) => setFavorites(prev => prev.filter(f => f.id !== id));
-  const clearAll = () => { if (confirm("Очистить все избранные?")) setFavorites([]); };
+  // 🔹 Удаление из избранного (с синхронизацией localStorage)
+  const removeFavorite = (id: string) => {
+    setFavorites(prev => prev.filter(f => f.id !== id));
+    
+    // Синхронизируем с localStorage
+    try {
+      const saved = JSON.parse(localStorage.getItem("saved_items") || "[]");
+      const filtered = saved.filter((i: string) => i !== id);
+      localStorage.setItem("saved_items", JSON.stringify(filtered));
+    } catch (e) {
+      console.error("Ошибка синхронизации:", e);
+    }
+  };
+
+  const clearAll = () => { 
+    if (confirm("Очистить все избранные?")) {
+      setFavorites([]);
+      localStorage.setItem("saved_items", JSON.stringify([]));
+    }
+  };
+
   const toggleSelect = (id: string) => setSelectedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   const buySelected = () => console.log("Buy selected:", selectedItems);
   
@@ -82,8 +201,9 @@ export default function FavoritesPage() {
   };
 
   // 🔹 Аналитика с разделением по типам
-  const totalPrompts = favorites.filter(f => f.type !== "skill").length;
+  const totalPrompts = favorites.filter(f => f.type === "prompt").length;
   const totalSkills = favorites.filter(f => f.type === "skill").length;
+  const totalAgents = favorites.filter(f => f.type === "agent").length;
   const totalSaved = favorites.filter(f => f.originalPrice && f.originalPrice > f.price).reduce((sum, f) => sum + ((f.originalPrice || 0) - f.price), 0);
   const totalPurchased = favorites.filter(f => f.purchased).length;
 
@@ -93,7 +213,7 @@ export default function FavoritesPage() {
         <div>
           <h1 className="text-2xl font-bold">Избранное</h1>
           <p className="text-sm text-muted-foreground">
-            {totalPrompts} промтов · {totalSkills} скилов
+            {totalPrompts} промтов · {totalSkills} скилов · {totalAgents} агентов
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -106,7 +226,7 @@ export default function FavoritesPage() {
       {showAnalytics && (
         <div className="bg-card rounded-xl border border-border p-4 mb-4 animate-fade-in">
           <h3 className="font-semibold text-sm mb-3">Статистика избранного</h3>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold">{totalPrompts}</p>
               <p className="text-xs text-muted-foreground">Промтов</p>
@@ -114,6 +234,10 @@ export default function FavoritesPage() {
             <div className="text-center">
               <p className="text-2xl font-bold">{totalSkills}</p>
               <p className="text-xs text-muted-foreground">Скилов</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold">{totalAgents}</p>
+              <p className="text-xs text-muted-foreground">Агентов</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold">{totalPurchased}</p>
@@ -143,6 +267,7 @@ export default function FavoritesPage() {
             { key: "all", label: "Все" },
             { key: "prompt", label: "Промты", icon: <FileText className="h-3 w-3" /> },
             { key: "skill", label: "Скилы", icon: <Zap className="h-3 w-3" /> },
+            { key: "agent", label: "Агенты", icon: <Bot className="h-3 w-3" /> },
           ].map((ct) => (
             <button
               key={ct.key}
@@ -224,20 +349,27 @@ export default function FavoritesPage() {
               ? "Нет избранных скилов" 
               : contentType === "prompt"
               ? "Нет избранных промтов"
+              : contentType === "agent"
+              ? "Нет избранных агентов"
               : "Нет избранных элементов"}
           </p>
-          <button onClick={() => window.location.href = "/market"} className="mt-3 px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium">Перейти в маркет</button>
+          <Link to="/market" className="mt-3 inline-block px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium">Перейти в маркет</Link>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(f => {
             const isSkill = f.type === "skill";
+            const isAgent = f.type === "agent";
             return (
               <div key={f.id} className="bg-card rounded-xl border border-border overflow-hidden relative">
                 
                 {/* 🔹 Бейдж типа контента */}
                 <div className="absolute top-2 left-2 z-10">
-                  {isSkill ? (
+                  {isAgent ? (
+                    <span className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold rounded-full backdrop-blur-sm">
+                      <Bot className="h-3 w-3" /> AGENT
+                    </span>
+                  ) : isSkill ? (
                     <span className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full backdrop-blur-sm">
                       <Zap className="h-3 w-3" /> SKILL
                     </span>
@@ -261,10 +393,12 @@ export default function FavoritesPage() {
                   )}
                 </div>
                 <div className="p-3">
-                  <h3 className="font-semibold text-sm mb-1 line-clamp-1 pr-12">{f.title}</h3>
+                  <Link to={`/prompt/${f.id}`}>
+                    <h3 className="font-semibold text-sm mb-1 line-clamp-1 pr-12 hover:text-primary transition-colors">{f.title}</h3>
+                  </Link>
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-muted-foreground">{f.author} · ★ {f.rating}</p>
-                    {isSkill && f.version && (
+                    {(isSkill || isAgent) && f.version && (
                       <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">v{f.version}</span>
                     )}
                   </div>
@@ -283,20 +417,9 @@ export default function FavoritesPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      {f.purchased ? (
-                        <button className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium flex items-center gap-1">
-                          <ExternalLink className="h-3 w-3" /> {isSkill ? "Активен" : "Открыть"}
-                        </button>
-                      ) : (
-                        <>
-                          <button className="px-2 py-1 rounded-lg gradient-primary text-primary-foreground text-xs font-medium">
-                            <ShoppingCart className="h-3 w-3" />
-                          </button>
-                          <button className="px-2 py-1 rounded-lg border border-border text-xs">
-                            <Play className="h-3 w-3" />
-                          </button>
-                        </>
-                      )}
+                      <Link to={`/prompt/${f.id}`} className="px-2 py-1 rounded-lg gradient-primary text-primary-foreground text-xs font-medium flex items-center gap-1">
+                        <ExternalLink className="h-3 w-3" /> Открыть
+                      </Link>
                       <button onClick={() => removeFavorite(f.id)} className="px-2 py-1 rounded-lg text-destructive hover:bg-destructive/5">
                         <Heart className="h-3 w-3 fill-current" />
                       </button>

@@ -34,6 +34,7 @@ import CreatePost from "./pages/CreatePost";
 import PublishPromptPage from "./components/prompt-market/PublishPromptPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
+import AuthorProfilePage from "./pages/AuthorProfilePage";
 import NotFound from "./pages/NotFound";
 import ReferralPage from "./pages/ReferralPage";
 import TeamAccountsPage from "./pages/TeamAccountsPage";
@@ -92,6 +93,7 @@ const App = () => (
                     <Route path="/blog/create" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
                     <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                    <Route path="/profile/:userId" element={<AuthorProfilePage />} />
                     <Route path="/referrals" element={<ProtectedRoute><ReferralPage /></ProtectedRoute>} />
                     <Route path="/team" element={<ProtectedRoute><TeamAccountsPage /></ProtectedRoute>} />
                     <Route path="/custom-orders" element={<ProtectedRoute><CustomOrdersPage /></ProtectedRoute>} />

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { X, Trash2, CreditCard, QrCode, Wallet, Tag, CheckCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { X, Trash2, CreditCard, QrCode, Wallet, Tag, CheckCircle, ExternalLink, FileText, Play, Video } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 export interface CartItem {
   id: string;
@@ -8,6 +8,7 @@ export interface CartItem {
   author: string;
   price: number;
   image: string;
+  type?: string; // 🔹 ДОБАВЛЕНО: тип контента (prompt/skill/agent)
 }
 
 interface CartPanelProps {
@@ -21,6 +22,17 @@ interface CartPanelProps {
 type PaymentMethod = "card" | "sbp" | "balance";
 type CheckoutStep = "cart" | "checkout" | "success";
 
+// 🔹 ФУНКЦИЯ ОПРЕДЕЛЕНИЯ ТИПА МЕДИА
+const getMediaType = (url: string): "video" | "image" | "unknown" => {
+  if (!url) return "unknown";
+  const videoExtensions = /\.(mp4|webm|mov|avi|mkv)$/i;
+  const imageExtensions = /\.(jpg|jpeg|png|webp|gif|svg|bmp)$/i;
+  
+  if (videoExtensions.test(url)) return "video";
+  if (imageExtensions.test(url)) return "image";
+  return "unknown";
+};
+
 export function CartPanel({ open, onClose, items, onRemove, onClear }: CartPanelProps) {
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
@@ -31,6 +43,7 @@ export function CartPanel({ open, onClose, items, onRemove, onClear }: CartPanel
   const [cardCvc, setCardCvc] = useState("");
   const [saveCard, setSaveCard] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const navigate = useNavigate();
 
   if (!open) return null;
 
@@ -78,19 +91,72 @@ export function CartPanel({ open, onClose, items, onRemove, onClear }: CartPanel
                 <p className="text-center text-muted-foreground py-10 text-sm">Корзина пуста</p>
               ) : (
                 <>
-                  {items.map((item) => (
-                    <div key={item.id} className="flex gap-3 p-3 rounded-xl border border-border">
-                      <img src={item.image} alt={item.title} className="h-14 w-14 rounded-lg object-cover" />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium truncate">{item.title}</h4>
-                        <p className="text-xs text-muted-foreground">@{item.author}</p>
-                        <p className="text-sm font-bold mt-1">{item.price} ₽</p>
+                  {items.map((item) => {
+                    const mediaType = getMediaType(item.image);
+                    
+                    return (
+                      <div key={item.id} className="flex gap-3 p-3 rounded-xl border border-border">
+                        {/* 🔹 УНИВЕРСАЛЬНОЕ ОТОБРАЖЕНИЕ МЕДИА */}
+                        {item.image ? (
+                          mediaType === "video" ? (
+                            // ВИДЕО - показываем превью с иконкой Play
+                            <div className="relative h-14 w-14 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                              <video 
+                                src={item.image} 
+                                className="h-full w-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <Play className="h-5 w-5 text-white fill-white" />
+                              </div>
+                            </div>
+                          ) : mediaType === "image" ? (
+                            // КАРТИНКА
+                            <img 
+                              src={item.image} 
+                              alt={item.title} 
+                              className="h-14 w-14 rounded-lg object-cover flex-shrink-0"
+                              onError={(e) => { 
+                                (e.target as HTMLImageElement).style.display = "none"; 
+                              }}
+                            />
+                          ) : (
+                            // НЕИЗВЕСТНЫЙ ФОРМАТ
+                            <div className="h-14 w-14 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              <FileText className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )
+                        ) : (
+                          // НЕТ МЕДИА
+                          <div className="h-14 w-14 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                            <FileText className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium truncate">{item.title}</h4>
+                          <button 
+                            onClick={() => navigate(`/prompt/${item.id}`)} 
+                            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors mt-1" 
+                            title="Подробнее"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>Подробнее</span>
+                          </button>
+                          <p className="text-xs text-muted-foreground">@{item.author}</p>
+                          <p className="text-sm font-bold mt-1">{item.price} ₽</p>
+                        </div>
+                        <button 
+                          onClick={() => onRemove(item.id)} 
+                          className="self-start h-8 w-8 rounded-lg hover:bg-destructive/10 flex items-center justify-center transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </button>
                       </div>
-                      <button onClick={() => onRemove(item.id)} className="self-start h-8 w-8 rounded-lg hover:bg-destructive/10 flex items-center justify-center transition-colors">
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {/* Promo */}
                   <div className="flex gap-2">

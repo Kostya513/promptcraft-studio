@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { 
   Check, ChevronRight, ChevronLeft, X, Sparkles, Zap, Clock, 
   MessageSquare, FileText, Send, Save, Download, Copy, Bot, 
@@ -7,6 +7,7 @@ import {
   Globe, Webhook, Eye, Terminal, ArrowRight, RefreshCw, Loader2 
 } from "lucide-react";
 import { toast } from "sonner";
+import { addAgent, getAgents, saveAgents, type Agent } from "../../lib/agents-storage";
 
 type Step = "personality" | "triggers" | "integrations" | "workflow" | "memory" | "sandbox" | "security" | "publish";
 
@@ -51,7 +52,7 @@ const WORKFLOW_NODE_TYPES = [
   { id: "condition", label: "Condition", icon: <AlertCircle className="h-4 w-4" />, desc: "Условное ветвление" },
   { id: "action", label: "Action", icon: <Send className="h-4 w-4" />, desc: "Выполнение действия" },
   { id: "memory", label: "Memory", icon: <Database className="h-4 w-4" />, desc: "Запись в память" },
-  { id: "loop", label: "Loop", icon: <RefreshCw className="h-4 w-4" />, desc: "Цикл повторений" }, // Исправлено: добавлен RefreshCw
+  { id: "loop", label: "Loop", icon: <RefreshCw className="h-4 w-4" />, desc: "Цикл повторений" },
 ];
 
 const MEMORY_TYPES = [
@@ -63,6 +64,9 @@ const MEMORY_TYPES = [
 
 export default function StudioAgentBuilder() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editingId = searchParams.get("id");
+  
   const [currentStep, setCurrentStep] = useState<Step>("personality");
   const [config, setConfig] = useState<AgentConfig>({
     name: "",
@@ -79,6 +83,31 @@ export default function StudioAgentBuilder() {
   });
   const [sandboxLogs, setSandboxLogs] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+
+  // 🔹 ЗАГРУЗКА КОНФИГУРАЦИИ ПРИ РЕДАКТИРОВАНИИ
+  useEffect(() => {
+    if (editingId) {
+      const agents = getAgents();
+      const agent = agents.find(a => a.id === editingId);
+      
+      if (agent) {
+        setConfig({
+          name: agent.name || "",
+          role: agent.description || "",
+          personality: agent.config?.personality || "",
+          triggers: agent.config?.triggers || [],
+          integrations: agent.integrations || [],
+          workflow: agent.config?.workflow || [],
+          memoryType: agent.config?.memoryType || "short",
+          maxContext: agent.config?.maxContext || 4096,
+          maxIterations: agent.config?.maxIterations || 5,
+          timeout: agent.config?.timeout || 30,
+          tokenBudget: agent.config?.tokenBudget || 10000,
+        });
+        console.log("✅ Конфигурация загружена для агента:", agent.name);
+      }
+    }
+  }, [editingId]);
 
   const updateConfig = (updates: Partial<AgentConfig>) => setConfig(prev => ({ ...prev, ...updates }));
 
@@ -114,7 +143,7 @@ export default function StudioAgentBuilder() {
 
   const runSandbox = () => {
     setIsRunning(true);
-    setSandboxLogs(["🚀 Запуск песочницы...", "📥 Загрузка конфигурации...", "🧠 Инициализация LLM...", "✅ Готово к выполнению"]);
+    setSandboxLogs([" Запуск песочницы...", "📥 Загрузка конфигурации...", "🧠 Инициализация LLM...", "✅ Готово к выполнению"]);
     
     setTimeout(() => {
       setSandboxLogs(prev => [...prev, "⚡ Выполнение workflow...", "📤 Результат: Успешно"]);
@@ -123,7 +152,37 @@ export default function StudioAgentBuilder() {
   };
 
   const handlePublish = () => {
-    toast.success("Агент опубликован! Он доступен в разделе 'Мои агенты'.");
+    const newAgent: Agent = {
+      id: editingId || `ag_${Date.now()}`,
+      name: config.name || "Без названия",
+      description: config.role || "Нет описания",
+      status: "active",
+      runCount: editingId ? (getAgents().find(a => a.id === editingId)?.runCount || 0) : 0,
+      lastRun: editingId ? (getAgents().find(a => a.id === editingId)?.lastRun) : undefined,
+      integrations: config.integrations,
+      createdAt: editingId ? (getAgents().find(a => a.id === editingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
+      config: {
+        personality: config.personality,
+        triggers: config.triggers,
+        workflow: config.workflow,
+        memoryType: config.memoryType,
+        maxContext: config.maxContext,
+        maxIterations: config.maxIterations,
+        timeout: config.timeout,
+        tokenBudget: config.tokenBudget,
+      },
+    };
+
+    if (editingId) {
+      const agents = getAgents();
+      const updated = agents.map(a => a.id === editingId ? newAgent : a);
+      saveAgents(updated);
+      toast.success("Агент обновлён! Изменения сохранены.");
+    } else {
+      addAgent(newAgent);
+      toast.success("Агент опубликован! Он доступен в разделе 'Мои агенты'.");
+    }
+
     navigate("/studio?tab=agents");
   };
 
@@ -390,7 +449,6 @@ export default function StudioAgentBuilder() {
                 disabled={isRunning}
                 className="flex-1 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {/* Исправлено: добавлен Loader2 */}
                 {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 {isRunning ? "Выполняется..." : "Запустить тест"}
               </button>
@@ -521,7 +579,7 @@ export default function StudioAgentBuilder() {
               onClick={handlePublish}
               className="w-full py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
             >
-              <Save className="h-4 w-4" /> Опубликовать агента
+              <Save className="h-4 w-4" /> {editingId ? "Сохранить изменения" : "Опубликовать агента"}
             </button>
           </div>
         );
@@ -543,7 +601,7 @@ export default function StudioAgentBuilder() {
           </button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Bot className="h-6 w-6 text-primary" /> Конструктор AI-агентов
+              <Bot className="h-6 w-6 text-primary" /> {editingId ? "Редактирование агента" : "Конструктор AI-агентов"}
             </h1>
             <p className="text-sm text-muted-foreground">Создай автономного помощника за 8 шагов</p>
           </div>
